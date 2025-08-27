@@ -1,0 +1,5 @@
+west build --pristine -b rpi_pico -- -DBOARD_ROOT=./
+
+west build -p always -b rpi_pico samples/basic/blinky
+
+

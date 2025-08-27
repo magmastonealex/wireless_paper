@@ -1,0 +1,6 @@
+board:
+  name: pico_demo
+  full_name: a customized rpi pico
+  vendor: ar
+  socs:
+    - name: rp2040

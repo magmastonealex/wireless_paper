@@ -1,0 +1,4 @@
+
+config BOARD_ZEPH_DEMO
+	select SOC_STM32F103XB
+

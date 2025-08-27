@@ -1,0 +1,6 @@
+board:
+  name: zeph_demo
+  full_name: Demo board to test it out
+  vendor: ar
+  socs:
+    - name: stm32f103xb

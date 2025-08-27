@@ -1,0 +1,144 @@
+/dts-v1/;
+#include <freq.h>
+#include <raspberrypi/rpi_pico/rp2040.dtsi>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+#include <zephyr/dt-bindings/pinctrl/rpi-pico-rp2040-pinctrl.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+
+/ {
+  model = "Demo board - really a Pi Pico";
+  compatible = "ar,pico_demo";
+
+  chosen {
+   		zephyr,console = &uart0;
+		  zephyr,shell-uart = &uart0;
+      zephyr,sram = &sram0;
+		  zephyr,flash = &flash0;
+      zephyr,display = &eink;
+  };
+ 
+	leds {
+		compatible = "gpio-leds";
+		ledg: led_0 {
+			gpios = <&gpio0 25 GPIO_ACTIVE_HIGH>;
+			label = "LED";
+		};
+	};
+
+  mipi_dbi {
+    compatible = "zephyr,mipi-dbi-spi";
+    spi-dev = <&spi0>;
+    reset-gpios = <&gpio0 22 GPIO_ACTIVE_LOW>;
+    dc-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+    write-only;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    eink: uc8719@0 {
+      compatible = "ultrachip,uc8179";
+      busy-gpios = <&gpio0 22 GPIO_ACTIVE_LOW>;
+      duplex = <2048>; // half duplex.
+      reg = <0x0>;
+      mipi-max-frequency = <1000000>;
+      mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+      softstart = [27 27 2F 17];
+			width = <800>;
+			height = <480>;
+
+      full {
+				pwr = [17 17 3F 3F 11];
+        vdcs = <0x24>;
+        pll = <0x06>;
+				//cdi = <0x10>;
+				//t_c_o_n = <0x22>;
+
+        lutc = [00 0F 0F 00 00 01 
+                00 0F 01 0F 01 02 
+                00 0F 0F 00 00 01 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00];
+        lutww = [10 0F 0F 00 00 01 
+                  84 0F 01 0F 01 02 
+                  20 0F 0F 00 00 01 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00];
+        lutkw = [10  0F  0F  00  00  01  
+                84  0F  01  0F  01  02  
+                20  0F  0F  00  00  01  
+                00  00  00  00  00  00  
+                00  00  00  00  00  00  
+                00  00  00  00  00  00  
+                00  00  00  00  00  00];
+        lutwk = [80 0F 0F 00 00 01 
+                84 0F 01 0F 01 02 
+                40 0F 0F 00 00 01 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00];
+        lutkk = [80 0F 0F 00 00 01 
+                  84 0F 01 0F 01 02 
+                  40 0F 0F 00 00 01 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00];
+
+			};
+
+    };
+  };
+
+  aliases {
+     led0 = &ledg;
+  };
+
+};
+
+&spi0 {
+	clock-frequency = <DT_FREQ_M(1)>;
+	status = "okay";
+	pinctrl-0 = <&spi0_default>;
+  cs-gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;
+	pinctrl-names = "default";
+};
+
+&uart0 {
+	current-speed = <115200>;
+	status = "okay";
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+};
+
+&flash0 {
+	reg = <0x10000000 DT_SIZE_M(2)>;
+};
+
+&pinctrl {
+	uart0_default: uart0_default {
+		group1 {
+			pinmux = <UART0_TX_P0>;
+		};
+		group2 {
+			pinmux = <UART0_RX_P1>;
+			input-enable;
+		};
+	};
+  spi0_default: spi0_default {
+		group1 {
+			pinmux = <SPI0_CSN_P17>, <SPI0_SCK_P18>, <SPI0_TX_P19>;
+		};
+		group2 {
+			pinmux = <SPI0_RX_P16>;
+			input-enable;
+		};
+	};
+};
+
+&vreg {
+	regulator-always-on;
+	regulator-allowed-modes = <REGULATOR_RPI_PICO_MODE_NORMAL>;
+};

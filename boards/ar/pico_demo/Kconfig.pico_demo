@@ -1,0 +1,4 @@
+
+config BOARD_PICO_DEMO
+	select SOC_RP2040
+

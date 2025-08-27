@@ -1,0 +1,79 @@
+
+
+/ {
+    chosen {
+      zephyr,display = &eink;
+    };
+
+    mipi_dbi {
+    compatible = "zephyr,mipi-dbi-spi";
+    spi-dev = <&spi0>;
+    reset-gpios = <&gpio0 21 GPIO_ACTIVE_LOW>;
+    dc-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    eink: uc8719@0 {
+      compatible = "ultrachip,uc8179";
+      busy-gpios = <&gpio0 22 GPIO_ACTIVE_LOW>;
+      //duplex = <2048>; // half duplex.
+      reg = <0x0>;
+      mipi-max-frequency = <1000000>;
+      mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+      softstart = [27 27 2F 17];
+			width = <800>;
+			height = <480>;
+
+      full {
+				pwr = [17 17 3F 3F 11];
+        vdcs = <0x24>;
+        pll = <0x06>;
+				//cdi = <0x10>;
+				//t_c_o_n = <0x22>;
+
+        lutc = [00 0F 0F 00 00 01 
+                00 0F 01 0F 01 02 
+                00 0F 0F 00 00 01 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00];
+        lutww = [10 0F 0F 00 00 01 
+                  84 0F 01 0F 01 02 
+                  20 0F 0F 00 00 01 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00];
+        lutkw = [10  0F  0F  00  00  01  
+                84  0F  01  0F  01  02  
+                20  0F  0F  00  00  01  
+                00  00  00  00  00  00  
+                00  00  00  00  00  00  
+                00  00  00  00  00  00  
+                00  00  00  00  00  00];
+        lutwk = [80 0F 0F 00 00 01 
+                84 0F 01 0F 01 02 
+                40 0F 0F 00 00 01 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00 
+                00 00 00 00 00 00];
+        lutkk = [80 0F 0F 00 00 01 
+                  84 0F 01 0F 01 02 
+                  40 0F 0F 00 00 01 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00 
+                  00 00 00 00 00 00];
+
+			};
+
+    };
+  };
+};
+
+&spi0 {
+	clock-frequency = <DT_FREQ_M(1)>;
+	status = "okay";
+    cs-gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;
+};
