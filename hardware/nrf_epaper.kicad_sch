@@ -11264,26 +11264,6 @@
 		)
 		(uuid "286ff8a3-3f9b-40d1-b205-b368a16a9569")
 	)
-	(label "EPD_DC"
-		(at 256.54 97.79 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "28b32688-4fc1-4c3f-9ebd-2e987006265e")
-	)
-	(label "EPD_EN"
-		(at 256.54 113.03 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "2cfa0163-97f7-44e7-be7d-0763859c996f")
-	)
 	(label "QSPI_D3"
 		(at 360.68 88.9 0)
 		(effects
@@ -11313,6 +11293,16 @@
 			(justify left bottom)
 		)
 		(uuid "3965f7eb-440d-40da-af28-3ec748416a7e")
+	)
+	(label "EPD_EN"
+		(at 256.54 97.79 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "3ec0a253-f286-4d9e-a88d-0affc9e11de9")
 	)
 	(label "VBAT"
 		(at 88.9 63.5 0)
@@ -11503,6 +11493,16 @@
 			(justify left bottom)
 		)
 		(uuid "a2e1e922-eb8e-49db-96aa-a9e2adf20444")
+	)
+	(label "EPD_DC"
+		(at 256.54 113.03 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a5fd579a-c250-4505-b554-da530fdb181b")
 	)
 	(label "QSPI_CS"
 		(at 341.63 93.98 180)
