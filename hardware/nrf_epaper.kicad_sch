@@ -854,6 +854,100 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Personal:Touchmark"
+			(exclude_from_sim no)
+			(in_bom no)
+			(on_board yes)
+			(property "Reference" "REF"
+				(at 0 -3.556 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Personal:Touchmark"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Touchmark_1_0"
+				(polyline
+					(pts
+						(xy -1.1784 0.0371) (xy -0.698 -0.8791) (xy -2.8549 -0.8791) (xy -2.3714 0.0434) (xy -1.1784 0.0371)
+					)
+					(stroke
+						(width -0.0001)
+						(type solid)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.4747 3.7973) (xy 1.6564 3.7616) (xy 1.8269 3.7159) (xy 1.9866 3.6609) (xy 2.1356 3.5971)
+						(xy 2.2741 3.5251) (xy 2.4022 3.4453) (xy 2.5203 3.3585) (xy 2.6284 3.2651) (xy 2.7268 3.1657)
+						(xy 2.8157 3.0609) (xy 2.8952 2.9512) (xy 2.9657 2.8372) (xy 3.0271 2.7195) (xy 3.0799 2.5985)
+						(xy 3.124 2.475) (xy 3.1598 2.3494) (xy 3.1875 2.2224) (xy 3.2072 2.0944) (xy 3.2191 1.966) (xy 3.2235 1.8378)
+						(xy 3.2204 1.7104) (xy 3.2102 1.5844) (xy 3.193 1.4602) (xy 3.169 1.3384) (xy 3.1383 1.2197) (xy 3.1013 1.1045)
+						(xy 3.0581 0.9935) (xy 3.0088 0.8871) (xy 2.9538 0.7861) (xy 2.8931 0.6908) (xy 2.827 0.602) (xy 2.7556 0.5201)
+						(xy 4.5939 -2.1771) (xy 3.4821 -2.1803) (xy 1.9133 -0.017) (xy 1.9077 -0.0241) (xy 1.8998 -0.0307)
+						(xy 1.8898 -0.0368) (xy 1.8778 -0.0424) (xy 1.8481 -0.0523) (xy 1.8115 -0.0605) (xy 1.7689 -0.0672)
+						(xy 1.721 -0.0726) (xy 1.6688 -0.0767) (xy 1.6131 -0.0798) (xy 1.4942 -0.0837) (xy 1.3709 -0.0853)
+						(xy 1.1381 -0.087) (xy 1.1243 0.8375) (xy 1.5225 0.8471) (xy 1.5797 0.8634) (xy 1.6359 0.8859)
+						(xy 1.6909 0.9144) (xy 1.7444 0.9485) (xy 1.7961 0.9877) (xy 1.8457 1.0319) (xy 1.893 1.0805)
+						(xy 1.9376 1.1334) (xy 1.9792 1.19) (xy 2.0176 1.2502) (xy 2.0526 1.3134) (xy 2.0837 1.3794) (xy 2.1107 1.4478)
+						(xy 2.1334 1.5183) (xy 2.1514 1.5905) (xy 2.1645 1.6641) (xy 2.1723 1.7387) (xy 2.1747 1.814)
+						(xy 2.1712 1.8895) (xy 2.1617 1.9651) (xy 2.1457 2.0402) (xy 2.1232 2.1146) (xy 2.0937 2.188)
+						(xy 2.0569 2.2598) (xy 2.0126 2.3299) (xy 1.9606 2.3979) (xy 1.9004 2.4634) (xy 1.8319 2.526)
+						(xy 1.7547 2.5854) (xy 1.6686 2.6413) (xy 1.5732 2.6933) (xy 1.4684 2.7411) (xy 0.7653 2.7411)
+						(xy 0.7971 -2.1866) (xy -0.2416 -2.1907) (xy -0.2388 -0.9449) (xy -1.7797 2.0221) (xy -3.9346 -2.192)
+						(xy -5.08 -2.201) (xy -4.2865 -0.8219) (xy -1.7924 3.8005) (xy -0.2368 0.9596) (xy -0.224 3.81)
+						(xy 1.4747 3.7973)
+					)
+					(stroke
+						(width -0.0001)
+						(type solid)
+					)
+					(fill
+						(type outline)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "inventree:CAP-0603-1nF-50V"
 			(pin_numbers
 				(hide yes)
@@ -17275,6 +17369,71 @@
 			(project "nrf_epaper"
 				(path "/82c2cf7f-0e8c-452a-b57e-8b3ae3a2df8a"
 					(reference "R10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Personal:Touchmark")
+		(at 402.59 265.43 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "8a4b0335-93c4-4563-aa71-8ca996125664")
+		(property "Reference" "REF1"
+			(at 402.59 268.986 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "~"
+			(at 408.94 264.6254 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "Personal:Touchmark"
+			(at 402.59 265.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 402.59 265.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 402.59 265.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project ""
+				(path "/82c2cf7f-0e8c-452a-b57e-8b3ae3a2df8a"
+					(reference "REF1")
 					(unit 1)
 				)
 			)
