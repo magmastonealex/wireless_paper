@@ -8881,6 +8881,16 @@
 		)
 		(uuid "aac118a6-1b07-4a85-b2d6-2db06630e3f5")
 	)
+	(text "We'll populate one\nof these two options,\nC8 will decouple whichever\none is in use."
+		(exclude_from_sim no)
+		(at 348.234 199.898 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "bf006901-d590-4f7a-8639-e5b4fc690fe1")
+	)
 	(text "Boost Converter + FPC Connector"
 		(exclude_from_sim no)
 		(at 42.926 153.162 0)
@@ -9138,12 +9148,6 @@
 		(uuid "c30ef1a0-877a-4349-8da4-11a8e42403d3")
 	)
 	(junction
-		(at 377.19 200.66)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "ce207b07-51a2-4412-8afc-fb77d54be6c6")
-	)
-	(junction
 		(at 67.31 213.36)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9216,10 +9220,6 @@
 		(uuid "f9a8f6ec-de78-4a1e-9b2d-e703d5f183d1")
 	)
 	(no_connect
-		(at 124.46 91.44)
-		(uuid "0a0aa84f-eb8f-4367-b48a-8fa2893b6eb6")
-	)
-	(no_connect
 		(at 323.85 101.6)
 		(uuid "0e1d2dee-7087-4fff-bc0e-f3e773a7f5f2")
 	)
@@ -9262,6 +9262,10 @@
 	(no_connect
 		(at 275.59 86.36)
 		(uuid "a3e96aac-288f-4f01-a163-83f642770e42")
+	)
+	(no_connect
+		(at 124.46 88.9)
+		(uuid "d834b6b0-a881-4426-b7d9-e28a2df486d2")
 	)
 	(no_connect
 		(at 275.59 66.04)
@@ -9808,16 +9812,6 @@
 			(type default)
 		)
 		(uuid "31eb86c6-211d-45ec-ab36-665c109ef4e6")
-	)
-	(wire
-		(pts
-			(xy 377.19 200.66) (xy 392.43 200.66)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3213a34c-b0ae-4769-83fa-c7cfb73bfc09")
 	)
 	(wire
 		(pts
@@ -10521,16 +10515,6 @@
 	)
 	(wire
 		(pts
-			(xy 124.46 88.9) (xy 133.35 88.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "883cd45a-12d8-47b8-b34f-d3b3a97f3d2b")
-	)
-	(wire
-		(pts
 			(xy 118.11 222.25) (xy 116.84 222.25)
 		)
 		(stroke
@@ -10538,6 +10522,16 @@
 			(type default)
 		)
 		(uuid "88b1ab87-4f14-424f-9f61-8b4fb3096f6e")
+	)
+	(wire
+		(pts
+			(xy 124.46 91.44) (xy 133.35 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "898e8885-01d1-4a8e-91a9-fbd4c2f5f797")
 	)
 	(wire
 		(pts
@@ -10821,7 +10815,7 @@
 	)
 	(wire
 		(pts
-			(xy 377.19 199.39) (xy 377.19 200.66)
+			(xy 377.19 199.39) (xy 377.19 207.01)
 		)
 		(stroke
 			(width 0)
@@ -11048,16 +11042,6 @@
 			(type default)
 		)
 		(uuid "bed7a1d3-9459-4549-a363-c545886446c1")
-	)
-	(wire
-		(pts
-			(xy 377.19 200.66) (xy 377.19 207.01)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c08ddc55-0799-405a-a3a8-627b5a244c8b")
 	)
 	(wire
 		(pts
@@ -11559,16 +11543,6 @@
 		)
 		(uuid "3965f7eb-440d-40da-af28-3ec748416a7e")
 	)
-	(label "PM_INT"
-		(at 133.35 88.9 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "3bc70188-5698-4b31-810e-d487dde0f5ca")
-	)
 	(label "VBAT"
 		(at 88.9 63.5 0)
 		(effects
@@ -11878,6 +11852,16 @@
 			(justify left bottom)
 		)
 		(uuid "e6a0b291-d08d-48cc-969d-fdc7bc66ea2f")
+	)
+	(label "PM_INT"
+		(at 133.35 91.44 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "e7d151f0-36be-4112-ac70-6d6ebe401c60")
 	)
 	(label "QSPI_CLK_I"
 		(at 360.68 78.74 0)
@@ -17956,103 +17940,6 @@
 		)
 	)
 	(symbol
-		(lib_id "inventree:CAP-0805-0.1uF")
-		(at 392.43 204.47 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "8f140493-532c-4030-ae83-6d6fae4e1512")
-		(property "Reference" "C6"
-			(at 396.24 203.1999 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "0.1uF"
-			(at 396.24 205.7399 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Capacitor_SMD:C_0805_2012Metric_Pad1.18x1.45mm_HandSolder"
-			(at 393.3952 208.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 392.43 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Multilayer Ceramic Capacitors MLCC - SMD/SMT 25V 0.1uF X7R 0805 10%"
-			(at 392.43 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "InvenTree" "42"
-			(at 392.43 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Part URL" "http://inventree.home.svcs.alexroth.me/part/42/"
-			(at 392.43 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "IPN" "CAP-0805-0.1uF"
-			(at 392.43 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "2"
-			(uuid "48affa24-5c92-4ba6-811a-b0e50ff15397")
-		)
-		(pin "1"
-			(uuid "b6a6099c-ed65-4920-926c-88e9e81ea72a")
-		)
-		(instances
-			(project ""
-				(path "/82c2cf7f-0e8c-452a-b57e-8b3ae3a2df8a"
-					(reference "C6")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Connector_Generic:Conn_01x02")
 		(at 15.24 66.04 180)
 		(unit 1)
@@ -19941,73 +19828,6 @@
 			(project "nrf_epaper"
 				(path "/82c2cf7f-0e8c-452a-b57e-8b3ae3a2df8a"
 					(reference "#PWR07")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 392.43 208.28 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c00ff1cb-b298-4930-a0d3-e611112b31ad")
-		(property "Reference" "#PWR014"
-			(at 392.43 214.63 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 392.43 213.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Footprint" ""
-			(at 392.43 208.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 392.43 208.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 392.43 208.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "4625b088-b0f8-478c-ab8b-e293401f3abb")
-		)
-		(instances
-			(project "nrf_epaper"
-				(path "/82c2cf7f-0e8c-452a-b57e-8b3ae3a2df8a"
-					(reference "#PWR014")
 					(unit 1)
 				)
 			)
