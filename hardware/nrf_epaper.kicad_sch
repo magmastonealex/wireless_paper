@@ -8132,173 +8132,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "inventree:XTAL-SMD-32KHz-SMALL"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 1.016)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "Y?"
-				(at 0 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "32.768KHz"
-				(at 0 -2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "Personal:Crystal_SMD_2Pin_3.2x1.5mm_HandSoldering"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "CRYSTAL 32.7680KHZ 12.5PF SMD"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "InvenTree" "217"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Part URL" "http://inventree.home.svcs.alexroth.me/part/217/"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "IPN" "XTAL-SMD-32KHz-SMALL"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "Crystal*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "XTAL-SMD-32KHz-SMALL_0_1"
-				(polyline
-					(pts
-						(xy -1.27 -0.762) (xy -1.27 0.762)
-					)
-					(stroke
-						(width 0.381)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start -0.762 -1.524)
-					(end 0.762 1.524)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 -0.762) (xy 1.27 0.762)
-					)
-					(stroke
-						(width 0.381)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "XTAL-SMD-32KHz-SMALL_1_1"
-				(pin passive line
-					(at -2.54 0 0)
-					(length 1.27)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 2.54 0 180)
-					(length 1.27)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "power:+3V3"
 			(power)
 			(pin_numbers
@@ -9224,6 +9057,10 @@
 		(uuid "0e1d2dee-7087-4fff-bc0e-f3e773a7f5f2")
 	)
 	(no_connect
+		(at 275.59 53.34)
+		(uuid "1188c498-4520-4538-a175-a1fe2e39901d")
+	)
+	(no_connect
 		(at 142.24 227.33)
 		(uuid "146224e5-0ae1-4b1b-ac0f-8d1b6fdb21e3")
 	)
@@ -9250,6 +9087,10 @@
 	(no_connect
 		(at 323.85 105.41)
 		(uuid "57245266-9630-4e6e-b165-10854b8253bf")
+	)
+	(no_connect
+		(at 275.59 50.8)
+		(uuid "61a1b550-c392-4932-a1da-1fd84d120c9e")
 	)
 	(no_connect
 		(at 142.24 214.63)
@@ -9412,16 +9253,6 @@
 			(type default)
 		)
 		(uuid "0c4cf692-6822-4938-828a-769fd85d174a")
-	)
-	(wire
-		(pts
-			(xy 264.16 50.8) (xy 264.16 49.53)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0dada988-8d10-4ce7-9939-4d1c81b62cb1")
 	)
 	(wire
 		(pts
@@ -9975,16 +9806,6 @@
 	)
 	(wire
 		(pts
-			(xy 264.16 55.88) (xy 264.16 53.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "40f99b08-6adb-496a-a7ef-38b65346f4f1")
-	)
-	(wire
-		(pts
 			(xy 33.02 63.5) (xy 40.64 63.5)
 		)
 		(stroke
@@ -10042,16 +9863,6 @@
 			(type default)
 		)
 		(uuid "46647c97-d50c-4265-a99f-c32d4e0e70b5")
-	)
-	(wire
-		(pts
-			(xy 264.16 49.53) (xy 247.65 49.53)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "471ae4a6-f7c8-440f-85c0-5452bb259035")
 	)
 	(wire
 		(pts
@@ -10172,16 +9983,6 @@
 			(type default)
 		)
 		(uuid "56bc30cb-9db8-42ad-88ea-c0c4c624a186")
-	)
-	(wire
-		(pts
-			(xy 247.65 54.61) (xy 247.65 55.88)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "56f62cac-509a-4de7-a4f2-f3a98e8ace04")
 	)
 	(wire
 		(pts
@@ -10495,16 +10296,6 @@
 	)
 	(wire
 		(pts
-			(xy 275.59 50.8) (xy 264.16 50.8)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "855fea00-9fd2-4f97-84b6-7ee3df263dc8")
-	)
-	(wire
-		(pts
 			(xy 354.33 86.36) (xy 374.65 86.36)
 		)
 		(stroke
@@ -10725,16 +10516,6 @@
 	)
 	(wire
 		(pts
-			(xy 247.65 55.88) (xy 264.16 55.88)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9ab781b1-2234-45e6-b77b-faadedebf874")
-	)
-	(wire
-		(pts
 			(xy 124.46 97.79) (xy 135.89 97.79)
 		)
 		(stroke
@@ -10902,16 +10683,6 @@
 			(type default)
 		)
 		(uuid "b49ae6e6-d737-4f81-ae47-35d0da45d38f")
-	)
-	(wire
-		(pts
-			(xy 264.16 53.34) (xy 275.59 53.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b61cd7a6-ddbe-4fa0-b6df-244d1aef77ce")
 	)
 	(wire
 		(pts
@@ -15515,103 +15286,6 @@
 			(project ""
 				(path "/82c2cf7f-0e8c-452a-b57e-8b3ae3a2df8a"
 					(reference "U12")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "inventree:XTAL-SMD-32KHz-SMALL")
-		(at 247.65 52.07 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "4b17bfce-2762-4bf8-96b1-373fa5e579b8")
-		(property "Reference" "Y1"
-			(at 250.19 50.7999 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "32.768KHz"
-			(at 250.19 53.3399 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "Personal:Crystal_SMD_2Pin_3.2x1.5mm_HandSoldering"
-			(at 247.65 52.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 247.65 52.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "CRYSTAL 32.7680KHZ 12.5PF SMD"
-			(at 247.65 52.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "InvenTree" "217"
-			(at 247.65 52.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Part URL" "http://inventree.home.svcs.alexroth.me/part/217/"
-			(at 247.65 52.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "IPN" "XTAL-SMD-32KHz-SMALL"
-			(at 247.65 52.07 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "2"
-			(uuid "084862f4-6116-4a06-b4aa-aa6ecad96489")
-		)
-		(pin "1"
-			(uuid "bce0049f-94d0-47eb-96d7-23db93ba1034")
-		)
-		(instances
-			(project ""
-				(path "/82c2cf7f-0e8c-452a-b57e-8b3ae3a2df8a"
-					(reference "Y1")
 					(unit 1)
 				)
 			)
