@@ -1,6 +1,7 @@
 *.prl
 *.csv
 *.zip
+mfgout/
 jlcout/
 *-backups/
 *.step
