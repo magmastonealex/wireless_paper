@@ -3,6 +3,7 @@
 / {
     chosen {
       zephyr,display = &eink;
+      //zephyr,settings-partition = &storage_partition;
     };
 
     mipi_dbi {
