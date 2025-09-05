@@ -13,6 +13,9 @@
 
 #include <zephyr/net/openthread.h>
 #include <openthread/thread.h>
+#include <openthread/dataset.h>
+
+#include <app_version.h>
 
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 
@@ -54,8 +57,29 @@ static void on_thread_state_changed(otChangedFlags flags, void *user_data)
 static struct openthread_state_changed_callback ot_state_chaged_cb = {
 	.otCallback = on_thread_state_changed};
 
+static uint8_t tlvData[111] = {
+    0x0e, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x13, 0x4a, 0x03, 0x00, 0x00, 0x14, 0x35, 0x06, 0x00, 0x04, 0x00, 0x1f, 0xff, 0xe0, 0x02, 0x08, 0xf3, 0x8d, 0x7d, 0xff, 0xdb, 0x71, 0xbc, 0x4f, 0x07, 0x08, 0xfd, 0xed, 0x56, 0xea, 0xb7, 0xec, 0xb3, 0xae, 0x05, 0x10, 0xde, 0x02, 0xa0, 0xf2, 0x46, 0x27, 0xd7, 0x88, 0xdc, 0x91, 0xe0, 0x82, 0x02, 0xd9, 0x70, 0x67, 0x03, 0x0f, 0x4f, 0x70, 0x65, 0x6e, 0x54, 0x68, 0x72, 0x65, 0x61, 0x64, 0x2d, 0x39, 0x33, 0x63, 0x31, 0x01, 0x02, 0x93, 0xc1, 0x04, 0x10, 0x37, 0x89, 0xf9, 0x85, 0xb8, 0x57, 0x8a, 0x89, 0xbe, 0x72, 0xd7, 0x6d, 0x66, 0xbb, 0x3e, 0x82, 0x0c, 0x04, 0x02, 0xa0, 0xf7, 0xf8
+};
+
+void set_ot_data() {
+    otOperationalDatasetTlvs tlvs;
+
+    memcpy(tlvs.mTlvs, tlvData, 111);
+    tlvs.mLength = 111;
+    
+    otError err = otDatasetSetActiveTlvs(openthread_get_default_instance(), &tlvs);
+    if (err != OT_ERROR_NONE) {
+        LOG_ERR("failed to set active TLVs: %d", err);
+    }
+    else {
+        LOG_INF("Set active dataset.");
+    }
+}
+
 int main(void)
 {
+    LOG_INF("Starting app version: %s", APP_VERSION_STRING);
+
     /* Get the display device */
     const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
     struct display_capabilities caps;
@@ -76,6 +100,7 @@ int main(void)
     LOG_INF("Current pixel format: %x", caps.current_pixel_format);
     LOG_INF("Current orientation: %d", caps.current_orientation);
 
+    
     // OT does a setting write every startup to save new network and parent info.
     // I _really_ don't like this unneccessary flash wear.
     // 
@@ -87,7 +112,9 @@ int main(void)
     // Probably will take a bit longer.
     // Alternatively, can we disable writing to `kKeyNetworkInfo` / `kKeyParentInfo`?
 
+    
     openthread_state_changed_callback_register(&ot_state_chaged_cb);
+    //set_ot_data();
     LOG_INF("Starting OpenThread!");
     openthread_run();
 
