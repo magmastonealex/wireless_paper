@@ -1,0 +1,18 @@
+diff --git a/src/server.rs b/src/server.rs
+index 1e3f644..230a76d 100644
+--- a/src/server.rs
++++ b/src/server.rs
+@@ -339,9 +339,12 @@ impl ServerCoapState {
+         }
+     }
+     pub fn new() -> Self {
++        let mut bhc = BlockHandlerConfig::default();
++        bhc.max_total_message_size = 256;
++
+         Self {
+             observer: Observer::new(),
+-            block_handler: BlockHandler::new(BlockHandlerConfig::default()),
++            block_handler: BlockHandler::new(bhc),
+             disable_observe: false,
+         }
+     }
