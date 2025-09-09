@@ -1,7 +1,7 @@
 use coap_lite::{RequestType as Method, CoapRequest, CoapOption};
 use coap::Server;
 use tokio::runtime::Runtime;
-use std::{fs, net::SocketAddr};
+use std::{fs, net::SocketAddr, thread, time::Duration};
 
 
 fn main() {
@@ -22,11 +22,15 @@ fn main() {
                 println!("Got option: {}, data: {:#?}", oid, data);
             }
 
+            thread::sleep(Duration::from_secs(5));
+
             let path = request.get_path();
             match request.response {
                 Some(ref mut message) => {
                     if path == "fw/00000001" {
                         message.message.payload = fs::read("test.bin").unwrap();
+                    } else if path == "img" {
+                        message.message.payload = fs::read("img.bin").unwrap();
                     } else {
                         message.message.payload = b"OK".to_vec();
                     }

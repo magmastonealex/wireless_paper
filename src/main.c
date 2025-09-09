@@ -23,6 +23,7 @@
 #include <zephyr/dfu/mcuboot.h>
 
 #include <app_version.h>
+#include <zephyr/sys/util.h>
 
 #include <stdio.h>
 
@@ -85,10 +86,12 @@ void set_ot_data() {
     }
 }
 
-static K_SEM_DEFINE(coap_done_sem, 0, 1);
+
 
 static struct coap_client client = {0};
 
+/*
+static K_SEM_DEFINE(coap_done_sem, 0, 1);
 struct firmware_write_context {
     uint32_t version;
     uint32_t high_water_mark;
@@ -185,7 +188,7 @@ static void do_firmware_download(struct sockaddr *sa, uint32_t version)
 		return;
 	}
 
-	/* Wait for CoAP request to complete - we should probably put an upper bound on this and cancel requests afterwards? Does that work the way we think it should?  */
+	// Wait for CoAP request to complete - we should probably put an upper bound on this and cancel requests afterwards? Does that work the way we think it should? 
 	k_sem_take(&coap_done_sem, K_FOREVER);
 
     if (fw_write.has_failed != 0) {
@@ -201,6 +204,157 @@ static void do_firmware_download(struct sockaddr *sa, uint32_t version)
 
 	zsock_close(sockfd);
 }
+
+*/
+
+static K_SEM_DEFINE(image_done_sem, 0, 1);
+
+const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+
+#define DISPLAY_WIDTH 800
+#define DISPLAY_HEIGHT 480
+
+struct image_write_context {
+    uint32_t high_water_mark;
+    uint32_t has_failed;
+    uint32_t is_done;
+    
+    uint16_t y_index;
+
+    uint8_t num_bytes_in_buf;
+    uint8_t buf[100];
+};
+
+static void write_one_line(uint16_t y, uint8_t *buf, uint16_t num_pix) {
+    struct display_buffer_descriptor buf_desc = {
+        .buf_size = num_pix,
+        .width = num_pix*8,
+        .height = 1,
+        .pitch = num_pix*8, /* Pitch is the width of the buffer */
+    };
+    int ret = display_write(display_dev, 0, y, &buf_desc, buf);
+
+    if (ret != 0) {
+        LOG_ERR("Failed to write to display: %d", ret);
+    }
+}
+
+static void img_coap_response(int16_t result_code, size_t offset, const uint8_t *payload, size_t len,
+			     bool last_block, void *user_data)
+{
+    struct image_write_context * ctx = (struct image_write_context *) user_data;
+
+    //LOG_INF("CoAP response, result_code=%d, offset=%u, len=%u is-last=%s", result_code, offset, len, last_block ? "yes" : "no");
+    if (result_code != COAP_RESPONSE_CODE_CONTENT) {
+		LOG_ERR("Error during CoAP download, result_code=%d", result_code);
+        ctx->has_failed = 1;
+        k_sem_give(&image_done_sem);
+		return;
+    }
+    
+    if (ctx->has_failed == 1) {
+        LOG_ERR("Request has failed, but we have no way to signal this right now. Just early return.");
+        k_sem_give(&image_done_sem);
+        return;
+    }
+
+    // We need to receive the bytes in order - offset should always be == the high-water mark.
+    if (offset != ctx->high_water_mark) {
+        LOG_ERR("Invalid offset received (out of order or duplicate?)");
+        ctx->has_failed = 1;
+        k_sem_give(&image_done_sem);
+        return;
+    }
+
+    ctx->high_water_mark = offset + len;
+
+
+    // this feels inefficient - copy into the buffer 100 bytes at a time until we have a full buffer.
+    size_t payload_pos = 0;
+
+    while (payload_pos < len) {
+        size_t size_in_buffer = 100 - ctx->num_bytes_in_buf;
+        size_t size_in_payload = len - payload_pos;
+        size_t to_copy = MIN(size_in_buffer, size_in_payload);
+
+        //LOG_INF("p: %zu b: %zu, copying: %zu", payload_pos, ctx->num_bytes_in_buf, to_copy);
+
+        memcpy(ctx->buf + ctx->num_bytes_in_buf, payload + payload_pos, to_copy);
+        payload_pos += to_copy;
+        ctx->num_bytes_in_buf += to_copy;
+
+        if (ctx->num_bytes_in_buf == 100) {
+            //LOG_INF("Writing line to display...");
+            //memset(ctx->buf, 0xAA, 100);
+            write_one_line(ctx->y_index, ctx->buf, 100);
+            ctx->y_index++;
+            ctx->num_bytes_in_buf = 0;
+        }
+    }
+	    
+    if (last_block) {
+        LOG_INF("CoAP img download done, got %u bytes", ctx->high_water_mark);
+        ctx->is_done = 1;
+        k_sem_give(&image_done_sem);
+    }
+}
+
+static struct image_write_context img_write = {0};
+
+static void do_image_download(struct sockaddr *sa)
+{
+	int ret;
+	int sockfd;
+
+    int err = 0;
+    
+    display_blanking_on(display_dev);
+    memset(&img_write, 0, sizeof(struct image_write_context));
+    //img_write.version = version;
+    
+
+	struct coap_client_request request = {.method = COAP_METHOD_GET,
+					      .confirmable = true,
+					      .path = "/img",
+					      .payload = NULL,
+					      .len = 0,
+					      .cb = img_coap_response,
+					      .options = NULL,
+					      .num_options = 0,
+					      .user_data = (void*) &img_write};
+
+	LOG_INF("Starting CoAP image download using %s", (AF_INET == sa->sa_family) ? "IPv4" : "IPv6");
+
+	sockfd = zsock_socket(sa->sa_family, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		LOG_ERR("Failed to create socket, err %d", errno);
+		return;
+	}
+
+	ret = coap_client_req(&client, sockfd, sa, &request, NULL);
+	if (ret) {
+		LOG_ERR("Failed to send CoAP request, err %d", ret);
+		return;
+	}
+
+	/* Wait for CoAP request to complete - we should probably put an upper bound on this and cancel requests afterwards? Does that work the way we think it should?  */
+	k_sem_take(&image_done_sem, K_FOREVER);
+
+    if (img_write.has_failed != 0) {
+        LOG_ERR("Image write has failed.");
+    } else if (img_write.is_done != 1) {
+        LOG_ERR("Semaphore returned but write is not complete?");
+    } else {
+        LOG_INF("Image download completed. Un-blanking display...");
+        display_blanking_off(display_dev);
+    }
+
+	coap_client_cancel_requests(&client);
+
+	zsock_close(sockfd);
+}
+
+
 
 int main(void)
 {
@@ -218,7 +372,7 @@ int main(void)
     }
 
     /* Get the display device */
-    const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+    //const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
     struct display_capabilities caps;
     uint32_t display_width, display_height;
 
@@ -263,33 +417,35 @@ int main(void)
      * For MONO01, a 1-bit-per-pixel format, you would need a buffer of
      * (BOX_WIDTH * BOX_HEIGHT) / 8 bytes.
      */
-    uint8_t buf[(BOX_WIDTH * BOX_HEIGHT)/8]; // 1 byte per pixel for MONO01
 
-    /* Fill the buffer with black color (R=0, G=0, B=0) */
-    for (int i = 0; i < sizeof(buf); i++) {
-        buf[i] = 0x00;
-    }
-
-    /* Define the buffer descriptor */
-    struct display_buffer_descriptor buf_desc = {
-        .buf_size = sizeof(buf),
+    uint8_t buf[200]; // 1 byte per pixel for MONO01
+    memset(buf, 0xAA, 200);
+    /*struct display_buffer_descriptor buf_desc = {
+        .buf_size = 5,
         .width = BOX_WIDTH,
-        .height = BOX_HEIGHT,
-        .pitch = BOX_WIDTH, /* Pitch is the width of the buffer */
-    };
+        .height = 1,
+        .pitch = BOX_WIDTH, // Pitch is the width of the buffer 
+    };*/
 
+    /*display_blanking_on(display_dev);
+    for (uint16_t i = 0; i < 20; i++) {
+        memset(buf, i % 2 == 0 ? 0xAA : 0x44, 100);
+
+        write_one_line(i, buf, 100);
+    }
+    display_blanking_off(display_dev);*/
+    
 
 	/* Clear the entire screen to a default color (optional, but good practice) */
     /* For this, we can just write a black buffer to the whole screen */
     /*
     display_blanking_on(display_dev);
-
     // Calculate the center of the screen
 	uint16_t x_center = 0;
     uint16_t y_center = 0;
 	for (uint8_t i = 0; i < 10; i++) {
-		x_center = BOX_WIDTH * i;
-		y_center = x_center;
+		x_center = (BOX_WIDTH * i);
+		y_center = i*5; //x_center;
 
 		LOG_INF("Drawing box at x:%d, y:%d", x_center, y_center);
 		// Write the buffer to the display
@@ -300,10 +456,10 @@ int main(void)
 			return 0;
 		}
 
-		k_msleep(250);
+		//k_msleep(250);
 	}
-	display_blanking_off(display_dev);
-    */
+	display_blanking_off(display_dev);*/
+    
 
 	LOG_INF("Black box drawn successfully in the center of the display.");
     
@@ -337,7 +493,7 @@ int main(void)
                 addr6->sin6_port = htons(5683);
                 zsock_inet_pton(AF_INET6, "fd7d:56af:ad45:1:9fc6:1d58:d2db:2517", &addr6->sin6_addr);
 
-                do_firmware_download(&sa, 0x00000001);
+                do_image_download(&sa/*, 0x00000001*/);
                 tried_coap = 1;
             }
         } else {
