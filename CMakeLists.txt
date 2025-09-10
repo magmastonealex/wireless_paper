@@ -6,7 +6,7 @@ set(BOARD nrf54l15dk/nrf54l15/cpuapp)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(zapp)
 
-target_sources(app PRIVATE src/main.c)
+target_sources(app PRIVATE src/main.c src/heatshrink/heatshrink_decoder.c)
 
 
 

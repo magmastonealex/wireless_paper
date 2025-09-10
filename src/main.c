@@ -27,6 +27,8 @@
 
 #include <stdio.h>
 
+#include "heatshrink/heatshrink_decoder.h"
+
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 
 /* Define the size of the box */
@@ -218,11 +220,14 @@ struct image_write_context {
     uint32_t high_water_mark;
     uint32_t has_failed;
     uint32_t is_done;
+
+    size_t total_produced;
     
     uint16_t y_index;
 
     uint8_t num_bytes_in_buf;
     uint8_t buf[100];
+    heatshrink_decoder hsd;
 };
 
 static void write_one_line(uint16_t y, uint8_t *buf, uint16_t num_pix) {
@@ -268,32 +273,84 @@ static void img_coap_response(int16_t result_code, size_t offset, const uint8_t 
 
     ctx->high_water_mark = offset + len;
 
+    
+    // this needs to be totally re-written at some point... lots of memory waste and grossness here. For now, I want something I can flash
+    // to test the hardware :)
 
     // this feels inefficient - copy into the buffer 100 bytes at a time until we have a full buffer.
     size_t payload_pos = 0;
+    HSD_sink_res sres;
+    HSD_poll_res pres;
+    HSD_finish_res fres;
 
     while (payload_pos < len) {
-        size_t size_in_buffer = 100 - ctx->num_bytes_in_buf;
+
         size_t size_in_payload = len - payload_pos;
-        size_t to_copy = MIN(size_in_buffer, size_in_payload);
+        size_t actually_read = 0;
+        sres = heatshrink_decoder_sink(&ctx->hsd, payload + payload_pos, size_in_payload, &actually_read);
+        //LOG_INF("Sunk %zu bytes (sres %d)", actually_read, sres);
+        payload_pos+= actually_read;
 
-        //LOG_INF("p: %zu b: %zu, copying: %zu", payload_pos, ctx->num_bytes_in_buf, to_copy);
 
-        memcpy(ctx->buf + ctx->num_bytes_in_buf, payload + payload_pos, to_copy);
-        payload_pos += to_copy;
-        ctx->num_bytes_in_buf += to_copy;
+        do {
+            size_t buffer_size_left = 100 - ctx->num_bytes_in_buf;
+            size_t did_poll = 0;
+            pres = heatshrink_decoder_poll(&ctx->hsd, ctx->buf + ctx->num_bytes_in_buf, buffer_size_left, &did_poll);
+            if (pres < 0) { 
+                LOG_ERR("pres failed: %d", pres);
+                ctx->has_failed = 1;
+                k_sem_give(&image_done_sem);
+                return;
+            }
+            //LOG_INF("Polled for %zu bytes", did_poll);
+            ctx->num_bytes_in_buf += did_poll;
+            ctx->total_produced += did_poll;
 
-        if (ctx->num_bytes_in_buf == 100) {
-            //LOG_INF("Writing line to display...");
-            //memset(ctx->buf, 0xAA, 100);
-            write_one_line(ctx->y_index, ctx->buf, 100);
-            ctx->y_index++;
-            ctx->num_bytes_in_buf = 0;
-        }
+            if (ctx->num_bytes_in_buf == 100) {
+                //LOG_INF("Writing line to display...");
+                //memset(ctx->buf, 0xAA, 100);
+                write_one_line(ctx->y_index, ctx->buf, 100);
+                ctx->y_index++;
+                ctx->num_bytes_in_buf = 0;
+            }
+
+        } while (pres == HSDR_POLL_MORE);
     }
+
+    LOG_INF("Total produced: %zu", ctx->total_produced);
+
+    
 	    
     if (last_block) {
-        LOG_INF("CoAP img download done, got %u bytes", ctx->high_water_mark);
+        fres = heatshrink_decoder_finish(&ctx->hsd);
+        if (fres == HSDR_FINISH_MORE) {
+            LOG_INF("Got bytes after finish...");
+            do {
+                size_t buffer_size_left = 100 - ctx->num_bytes_in_buf;
+                size_t did_poll = 0;
+                pres = heatshrink_decoder_poll(&ctx->hsd, ctx->buf + ctx->num_bytes_in_buf, buffer_size_left, &did_poll);
+                if (pres < 0) { 
+                    LOG_ERR("pres failed: %d", pres);
+                    ctx->has_failed = 1;
+                    k_sem_give(&image_done_sem);
+                    return;
+                }
+                //LOG_INF("Polled for %zu bytes", did_poll);
+                ctx->num_bytes_in_buf += did_poll;
+                ctx->total_produced += did_poll;
+
+                if (ctx->num_bytes_in_buf == 100) {
+                    //LOG_INF("Writing line to display...");
+                    //memset(ctx->buf, 0xAA, 100);
+                    write_one_line(ctx->y_index, ctx->buf, 100);
+                    ctx->y_index++;
+                    ctx->num_bytes_in_buf = 0;
+                }
+            } while (pres == HSDR_POLL_MORE);
+        } else {
+            LOG_INF("Finish result: %d", fres);
+        }
+        LOG_INF("CoAP img download done, got %u bytes, %u leftover", ctx->total_produced, ctx->num_bytes_in_buf);
         ctx->is_done = 1;
         k_sem_give(&image_done_sem);
     }
@@ -311,6 +368,7 @@ static void do_image_download(struct sockaddr *sa)
     display_blanking_on(display_dev);
     memset(&img_write, 0, sizeof(struct image_write_context));
     //img_write.version = version;
+    heatshrink_decoder_reset(&img_write.hsd);
     
 
 	struct coap_client_request request = {.method = COAP_METHOD_GET,
@@ -475,8 +533,6 @@ int main(void)
     int tried_coap = 0;
     /* The application can now enter a low-power state or do other work */
     while (1) {
-        k_msleep(10000);
-        
         // Are we connected?
         otDeviceRole role = otThreadGetDeviceRole(openthread_get_default_instance());
         if (role == OT_DEVICE_ROLE_CHILD || role == OT_DEVICE_ROLE_ROUTER || role == OT_DEVICE_ROLE_LEADER) {
@@ -500,7 +556,7 @@ int main(void)
             LOG_INF("Not connected - not attempting CoAP request.");
         }
 		
-        k_msleep(20000);
+        k_msleep(1000);
     }
     return 0;
 }

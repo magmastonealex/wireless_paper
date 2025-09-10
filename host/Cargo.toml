@@ -4,15 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.99"
 coap = "0.22.0"
 coap-lite = "0.13.3"
+heatshrink = "0.2.0"
 tokio = { version = "1.47.1", features = ["full"] }
 
-[package.metadata.patch]
-crates = ["coap"]
+#[package.metadata.patch]
+#crates = ["coap"]
 
-[patch.crates-io]
-coap = { path="./target/patch/coap-0.22.0" }
+#[patch.crates-io]
+#coap = { path="./target/patch/coap-0.22.0" }
 
 [build-dependencies]
 patch-crate = "0.1.13"
+
+[profile.dev]
+opt-level = 3
