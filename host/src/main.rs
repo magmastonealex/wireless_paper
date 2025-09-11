@@ -13,7 +13,7 @@ fn do_img() -> Result<Vec<u8>, anyhow::Error> {
             return Err(anyhow!("failed to make config: {}", reason));
         }
     };
-    let mut outvec = vec![0u8; raw_img.len()];
+    let mut outvec = vec![0u8; raw_img.len()*2];
     let real_out = match heatshrink::encode(&raw_img, &mut outvec, &cfg) {
         Ok(r) => r,
         Err(e) => {

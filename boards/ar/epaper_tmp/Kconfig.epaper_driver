@@ -1,0 +1,4 @@
+
+config BOARD_EPAPER_DRIVER
+	select SOC_NRF54L15_CPUAPP
+

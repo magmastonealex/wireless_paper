@@ -1,0 +1,6 @@
+DT_CHOSEN_Z_CODE_PARTITION := zephyr,code-partition
+DT_CHOSEN_Z_SRAM_PARTITION := zephyr,sram-secure-partition
+
+
+config ROM_START_OFFSET
+	default 0x800 if BOOTLOADER_MCUBOOT

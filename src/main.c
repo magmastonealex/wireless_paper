@@ -26,6 +26,7 @@
 #include <zephyr/sys/util.h>
 
 #include <stdio.h>
+#include <zephyr/drivers/gpio.h>
 
 #include "heatshrink/heatshrink_decoder.h"
 
@@ -412,13 +413,16 @@ static void do_image_download(struct sockaddr *sa)
 	zsock_close(sockfd);
 }
 
-
+static const struct gpio_dt_spec epd_en = GPIO_DT_SPEC_GET(DT_ALIAS(epd_en), gpios);
 
 int main(void)
 {
     LOG_INF("Starting app version: %s", APP_VERSION_STRING);
 
     LOG_INF("Boot swap type: %d", mcuboot_swap_type());
+
+    gpio_pin_configure_dt(&epd_en, GPIO_OUTPUT_ACTIVE);
+    gpio_pin_set_dt(&epd_en, 1);
 
     // in the future, only do this when we've verified server connectivity or something similar.
     if (!boot_is_img_confirmed()) {
