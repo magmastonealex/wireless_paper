@@ -1,0 +1,34 @@
+board:
+  name: epaper_driver
+  full_name: epaper driver board maybe
+  vendor: ar
+  socs:
+    - name: nrf54l15
+runners:
+  run_once:
+    '--recover':
+      - runners:
+          - nrfjprog
+          - nrfutil
+        run: first
+        groups:
+          - boards:
+              - epaper_driver/nrf54l15/cpuapp
+    '--erase':
+      - runners:
+          - nrfjprog
+          - jlink
+          - nrfutil
+        run: first
+        groups:
+          - boards:
+              - epaper_driver/nrf54l15/cpuapp
+    '--reset':
+      - runners:
+          - nrfjprog
+          - jlink
+          - nrfutil
+        run: last
+        groups:
+          - boards:
+              - epaper_driver/nrf54l15/cpuapp
