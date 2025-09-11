@@ -19,5 +19,14 @@
 	};
 };
 
+/delete-node/ &lfxo;
+
+&grtc {
+      /delete-property/ clocks;
+      /delete-property/ clock-names;
+      clocks = <&pclk>;
+      clock-names = "hfclock";
+};
+
 /* Include default memory partition configuration file */
 #include <nordic/nrf54l15_partition.dtsi>
