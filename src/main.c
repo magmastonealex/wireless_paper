@@ -30,6 +30,11 @@
 
 #include "heatshrink/heatshrink_decoder.h"
 
+#include <zephyr/drivers/regulator.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/dt-bindings/regulator/npm2100.h>
+#include <zephyr/drivers/mfd/npm2100.h>
+
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 
 /* Define the size of the box */
@@ -414,15 +419,28 @@ static void do_image_download(struct sockaddr *sa)
 }
 
 static const struct gpio_dt_spec epd_en = GPIO_DT_SPEC_GET(DT_ALIAS(epd_en), gpios);
+static const struct gpio_dt_spec green_led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
+
+static const struct device *boost = DEVICE_DT_GET(DT_NODELABEL(npm2100_boost));
+static const struct device *npm2100_pmic = DEVICE_DT_GET(DT_NODELABEL(npm2100_pmic));
 
 int main(void)
 {
     LOG_INF("Starting app version: %s", APP_VERSION_STRING);
-
     LOG_INF("Boot swap type: %d", mcuboot_swap_type());
+
+    // Set 3v3 for regulator...
+    //int vset_res = regulator_set_voltage(boost, 3300000, 3300000);
+    //if (vset_res != 0) {
+    //    LOG_ERR("Failed to vset: %d", vset_res);
+    //}
+
 
     gpio_pin_configure_dt(&epd_en, GPIO_OUTPUT_ACTIVE);
     gpio_pin_set_dt(&epd_en, 1);
+
+    //gpio_pin_configure_dt(&green_led, GPIO_OUTPUT_ACTIVE);
+    //gpio_pin_set_dt(&green_led, 1);
 
     // in the future, only do this when we've verified server connectivity or something similar.
     if (!boot_is_img_confirmed()) {
@@ -525,8 +543,7 @@ int main(void)
 
 	LOG_INF("Black box drawn successfully in the center of the display.");
     
-    
-    
+
   	int ret;
 
 	ret = coap_client_init(&client, NULL);
@@ -555,10 +572,17 @@ int main(void)
 
                 do_image_download(&sa/*, 0x00000001*/);
                 tried_coap = 1;
+
+                LOG_INF("About to hibernate...");
+                k_msleep(5000);
+                int hibres = mfd_npm2100_hibernate(npm2100_pmic, 60000, false);
+                LOG_INF("hibres: %d");
             }
         } else {
             LOG_INF("Not connected - not attempting CoAP request.");
         }
+
+        //gpio_pin_toggle_dt(&green_led);
 		
         k_msleep(1000);
     }

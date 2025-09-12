@@ -1,0 +1,4 @@
+// mcuboot specific overlay file.
+// Disable npm2100 to work around bug in SDK where it will try to build the driver which can't run properly anyways.
+
+/delete-node/ &npm2100_pmic;

@@ -98,6 +98,58 @@
 	pinctrl-names = "default", "sleep";
 };
 
+&i2c20 {
+        compatible = "nordic,nrf-twim";
+        status = "okay";
+        pinctrl-0 = <&i2c20_default>;
+        pinctrl-1 = <&i2c20_sleep>;
+        pinctrl-names = "default", "sleep";
+
+        npm2100_pmic: pmic@74 {
+                compatible = "nordic,npm2100";
+                reg = <0x74>;
+                pmic-int-pin = <1>;
+                pmic-int-flags = <(GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+                host-int-type = "level";
+                host-int-gpios = <&gpio0 2 GPIO_ACTIVE_LOW>;
+                shiphold-longpress = "disable";
+                
+
+                npm2100_gpio: gpio-controller {
+                        compatible = "nordic,npm2100-gpio";
+                        gpio-controller;
+                        #gpio-cells = <2>;
+                        ngpios = <2>;
+                };
+
+                npm2100_regulators: regulators {
+                        compatible = "nordic,npm2100-regulator";
+
+                        /* limits are set to min/max allowed values */
+                        npm2100_boost: BOOST {
+                                regulator-min-microvolt = <1800000>;
+                                regulator-max-microvolt = <3300000>;
+                                regulator-init-microvolt = <3300000>;
+                                regulator-init-microamp = <0>;
+                        };
+
+                        npm2100_ldosw: LDOSW {
+                                regulator-min-microvolt = <800000>;
+                                regulator-max-microvolt = <3000000>;
+                        };
+                };
+
+                npm2100_wdt: watchdog {
+                        compatible = "nordic,npm2100-wdt";
+                };
+
+                npm2100_vbat: vbat {
+                        compatible = "nordic,npm2100-vbat";
+                };
+        };
+
+};
+
 &nfct {
 	status = "disabled";
 };
