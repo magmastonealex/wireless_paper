@@ -41,6 +41,7 @@ LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 #define BOX_WIDTH  40
 #define BOX_HEIGHT 40
 
+static const struct gpio_dt_spec epd_en = GPIO_DT_SPEC_GET(DT_ALIAS(epd_en), gpios);
 
 static void on_thread_state_changed(otChangedFlags flags, void *user_data)
 {
@@ -411,14 +412,13 @@ static void do_image_download(struct sockaddr *sa)
     } else {
         LOG_INF("Image download completed. Un-blanking display...");
         display_blanking_off(display_dev);
+        gpio_pin_set_dt(&epd_en, 0); // This seems to help with the voltage "spike" (not particularly fast) that happens when the epd boost converter turns off. It seems to semi-reliably keep it under 4V, which will keep the nrf happier. When we switch to a custom impl, we will do this instead of (?) turning of the boost converter when the write is complete.
     }
 
 	coap_client_cancel_requests(&client);
 
 	zsock_close(sockfd);
 }
-
-static const struct gpio_dt_spec epd_en = GPIO_DT_SPEC_GET(DT_ALIAS(epd_en), gpios);
 static const struct gpio_dt_spec green_led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 
 static const struct device *boost = DEVICE_DT_GET(DT_NODELABEL(npm2100_boost));
