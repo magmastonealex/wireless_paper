@@ -35,6 +35,10 @@
 #include <zephyr/dt-bindings/regulator/npm2100.h>
 #include <zephyr/drivers/mfd/npm2100.h>
 
+#include <zcbor_common.h>
+#include <zcbor_encode.h>
+
+
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 
 /* Define the size of the box */
@@ -419,6 +423,49 @@ static void do_image_download(struct sockaddr *sa)
 
 	zsock_close(sockfd);
 }
+
+static bool build_heartbeat() {
+    uint8_t payload[64];
+    size_t  payload_len = sizeof(payload);
+    ZCBOR_STATE_E(encode_state, n, payload, payload_len, 0);
+
+    bool success = zcbor_map_start_encode(encode_state, 2);
+    if (!success) {
+        return false;
+    }
+
+    // --- First Key-Value Pair ---
+    // Key: "vbat_mV"
+    success = zcbor_tstr_put_lit(zse, "vbat_mV");
+    if (!success) { return false; }
+
+    // Value: 1323
+    success = zcbor_uint32_put(zse, 1323);
+    if (!success) { return false; }
+
+
+    // --- Second Key-Value Pair ---
+    // Key: "fw"
+    success = zcbor_tstr_put_lit(zse, "fw");
+    if (!success) { return false; }
+
+    // Value: 123456
+    success = zcbor_uint32_put(zse, 123456);
+    if (!success) { return false; }
+
+
+    // Finish encoding the map.
+    success = zcbor_map_end_encode(zse, 2);
+    if (!success) {
+        return false;
+    }
+
+    // The encoding was successful, update the payload size.
+    // zse->payload points to the byte after the last encoded byte.
+    size_t payload_size = (size_t)(zse->payload - buffer);
+    
+}
+
 static const struct gpio_dt_spec green_led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 
 static const struct device *boost = DEVICE_DT_GET(DT_NODELABEL(npm2100_boost));
