@@ -21,8 +21,8 @@ tokio = { version = "1.47.1", features = ["full"] }
 #[patch.crates-io]
 #coap = { path="./target/patch/coap-0.22.0" }
 
-[build-dependencies]
-patch-crate = "0.1.13"
+#[build-dependencies]
+#patch-crate = "0.1.13"
 
 [profile.dev]
 opt-level = 3
