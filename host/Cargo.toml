@@ -6,10 +6,12 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.99"
 async-trait = "0.1.89"
-chrono = { version = "0.4.42", features = ["pure-rust-locales"] }
+chrono = { version = "0.4.42", features = ["pure-rust-locales", "serde"] }
 ciborium = "0.2.2"
 coap = "0.22.0"
 coap-lite = "0.13.3"
+diesel = { version = "2.2.0", features = ["postgres", "chrono"] }
+diesel_migrations = "2.2.0"
 heatshrink = "0.2.0"
 serde = { version = "1.0.223", features = ["derive"] }
 thiserror = "2.0.16"

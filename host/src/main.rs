@@ -11,6 +11,8 @@ use crate::business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest};
 mod business;
 mod types;
 mod database;
+mod schema;
+mod database_test;
 
 fn do_img() -> Result<Vec<u8>, anyhow::Error> {
     let raw_img = fs::read("img.bin")?;
@@ -125,6 +127,12 @@ fn main() {
     let addr = "[::]:5683";
 
 	Runtime::new().unwrap().block_on(async move {
+        // Test database operations first
+        if let Err(e) = database_test::test_database_operations().await {
+            println!("Database test failed: {}", e);
+            return;
+        }
+
         let server = Server::new_udp(addr).unwrap();
         println!("Server up on {}", addr);
         let handler  = CoapHandler{
