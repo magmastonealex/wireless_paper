@@ -1,0 +1,27 @@
+name: "epaper_thingy"
+
+services:
+  database:
+    image: postgres:17.5
+    environment:
+      POSTGRES_USER: epaper
+      POSTGRES_DB: epaper
+      POSTGRES_PASSWORD: epaper_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - database-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U epaper -d epaper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+volumes:
+  database-data:

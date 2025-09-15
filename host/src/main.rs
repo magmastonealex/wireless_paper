@@ -10,6 +10,7 @@ use crate::business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest};
 
 mod business;
 mod types;
+mod database;
 
 fn do_img() -> Result<Vec<u8>, anyhow::Error> {
     let raw_img = fs::read("img.bin")?;
