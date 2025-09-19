@@ -16,7 +16,6 @@
         .firmware-state-started { color: #0d6efd; }
         .firmware-state-failed { color: #dc3545; }
         .device-card { transition: transform 0.2s; }
-        .device-card:hover { transform: translateY(-2px); }
         .timestamp { font-size: 0.85em; color: #6c757d; }
     </style>
 </head>
@@ -51,14 +50,6 @@
                 <button type="button" class="btn-close" @click="clearMessage"></button>
             </div>
 
-            <!-- Loading State -->
-            <div v-if="loading" class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Loading devices...</p>
-            </div>
-
             <!-- Device Grid -->
             <div v-else class="row g-4">
                 <div v-for="device in devices" :key="device.device_id" class="col-md-6 col-lg-4">
@@ -74,9 +65,9 @@
                             <div class="row mb-3">
                                 <div class="col-6">
                                     <small class="text-muted">Firmware</small>
-                                    <div class="fw-bold">v{{ device.desired_firmware }}</div>
+                                    <div class="fw-bold">v{{ formatFirmware(device.desired_firmware) }}</div>
                                     <small v-if="device.reported_firmware !== device.desired_firmware" class="text-warning">
-                                        Current: v{{ device.reported_firmware }}
+                                        Current: v{{ formatFirmware(device.reported_firmware) }}
                                     </small>
                                 </div>
                                 <div class="col-6">
@@ -98,13 +89,19 @@
                                     <div class="timestamp">{{ formatTimestamp(device.last_heartbeat) }}</div>
                                 </div>
                             </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">Next Expected</small>
+                                    <div class="timestamp">{{ formatTimestamp(device.expected_heartbeat) }}</div>
+                                    <div v-if="isOverdue(device.expected_heartbeat)" class="text-danger small">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        Overdue
+                                    </div>
+                                </div>
 
-                            <div class="mb-3">
-                                <small class="text-muted">Next Expected</small>
-                                <div class="timestamp">{{ formatTimestamp(device.expected_heartbeat) }}</div>
-                                <div v-if="isOverdue(device.expected_heartbeat)" class="text-danger small">
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                    Overdue
+                                <div class="col-6">
+                                    <small class="text-muted">Battery Voltage</small>
+                                    <div class="fw-bold">{{ +((device.vbat_mv/1000.0).toFixed(4)) }}V</div>
                                 </div>
                             </div>
                         </div>
@@ -165,8 +162,8 @@
                             </div>
                             <div class="mb-3">
                                 <label for="newDesiredFirmware" class="form-label">Desired Firmware Version</label>
-                                <input type="number" class="form-control" id="newDesiredFirmware"
-                                       v-model.number="newDevice.desired_firmware" required min="1">
+                                <input type="text" class="form-control" id="newDesiredFirmware"
+                                       v-model="newDevice.desired_firmware" required min="1">
                                 <div class="form-text">Target firmware version for the device</div>
                             </div>
                             <div class="mb-3">
@@ -214,17 +211,8 @@
                             </div>
                             <div class="mb-3">
                                 <label for="editDesiredFirmware" class="form-label">Desired Firmware Version</label>
-                                <input type="number" class="form-control" id="editDesiredFirmware"
-                                       v-model.number="editingDevice.desired_firmware" required min="1">
-                            </div>
-                            <div class="mb-3">
-                                <label for="editFirmwareState" class="form-label">Firmware State</label>
-                                <select class="form-select" id="editFirmwareState" v-model="editingDevice.firmware_state">
-                                    <option value="OK">OK</option>
-                                    <option value="PENDING">PENDING</option>
-                                    <option value="STARTED">STARTED</option>
-                                    <option value="FAILED">FAILED</option>
-                                </select>
+                                <input type="text" class="form-control" id="editDesiredFirmware"
+                                       v-model="editingDevice.desired_firmware" required min="1">
                             </div>
                             <div class="mb-3">
                                 <label for="editCheckinInterval" class="form-label">Check-in Interval (seconds)</label>
@@ -330,31 +318,18 @@
 
                 // Load devices on startup
                 await this.refreshDevices();
-
-                // Auto-refresh every 30 seconds
-                setInterval(() => {
-                    this.refreshDevices(true); // Silent refresh
-                }, 30000);
             },
 
             methods: {
-                async refreshDevices(silent = false) {
-                    if (!silent) this.loading = true;
-
+                async refreshDevices() {
                     try {
                         const response = await fetch('/api/devices');
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                         this.devices = await response.json();
-
-                        if (!silent) {
-                            this.showMessage('Devices refreshed successfully', 'success');
-                        }
                     } catch (error) {
                         console.error('Failed to load devices:', error);
                         this.showMessage('Failed to load devices: ' + error.message, 'error');
-                    } finally {
-                        this.loading = false;
                     }
                 },
 
@@ -362,7 +337,7 @@
                     this.newDevice = {
                         device_id: '',
                         device_friendly_name: '',
-                        desired_firmware: 100,
+                        desired_firmware: '0.0.0.10',
                         checkin_interval: 60
                     };
                     this.createModal.show();
@@ -370,14 +345,15 @@
 
                 async createDevice() {
                     this.creating = true;
-
+                    let device = {...this.newDevice};
+                    device.desired_firmware = this.unformatFirmware(this.newDevice.desired_firmware);
                     try {
                         const response = await fetch('/api/devices', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
                             },
-                            body: JSON.stringify(this.newDevice)
+                            body: JSON.stringify(device)
                         });
 
                         if (!response.ok) {
@@ -399,6 +375,7 @@
 
                 editDevice(device) {
                     this.editingDevice = { ...device };
+                    this.editingDevice.desired_firmware = this.formatFirmware(device.desired_firmware);
                     this.editModal.show();
                 },
 
@@ -408,8 +385,7 @@
                     try {
                         const updateData = {
                             device_friendly_name: this.editingDevice.device_friendly_name,
-                            desired_firmware: this.editingDevice.desired_firmware,
-                            firmware_state: this.editingDevice.firmware_state,
+                            desired_firmware: this.unformatFirmware(this.editingDevice.desired_firmware),
                             checkin_interval: this.editingDevice.checkin_interval
                         };
 
@@ -504,16 +480,43 @@
                         default: return 'bi-question-circle';
                     }
                 },
-
+                formatFirmware(fwnumeric) {
+                    let major = fwnumeric & 0xFF000000;
+                    let minor = fwnumeric & 0x00FF0000;
+                    let patch = fwnumeric & 0x0000FF00;
+                    let tweak = fwnumeric & 0x000000FF;
+                    
+                    return `${major}.${minor}.${patch}.${tweak}`;
+                },
+                unformatFirmware(fwstring) {
+                    // '1.4.5.6'
+                    let splitver = fwstring.split('.');
+                    if (splitver.length != 4) {
+                        throw new Error("invalid version number");
+                    }
+                    let realver = 0;
+                    for (let i = 0; i < 4; i++) {
+                        let comp = parseInt(splitver[i]);
+                        console.log(comp, i, (3-i)*8);
+                        if (isNaN(comp)) {
+                            throw new Error("version contains non-numeric component");
+                        }
+                        if (comp > 255 || comp < 0) {
+                            throw new Error("version contains > 255 or < 0");
+                        }
+                        realver |= (comp << ((3-i)*8));
+                    }
+                    return realver;
+                },
                 formatTimestamp(timestamp) {
                     const date = new Date(timestamp);
-                    const now = new Date();
+                    /*const now = new Date();
                     const diffMs = now - date;
                     const diffMins = Math.floor(diffMs / 60000);
 
                     if (diffMins < 1) return 'Just now';
                     if (diffMins < 60) return `${diffMins}m ago`;
-                    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+                    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;*/
 
                     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
                 },

@@ -26,7 +26,8 @@ async def send_heartbeat(host, port, device_id=1001, current_firmware=100):
     heartbeat_request = {
         "device_id": device_id,
         "current_firmware": current_firmware,
-        "protocol_version": 1
+        "protocol_version": 1,
+        "vbat_mv": 900
     }
 
     # Encode the request as CBOR

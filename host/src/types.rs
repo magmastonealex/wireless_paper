@@ -53,17 +53,5 @@ pub struct DeviceState {
     pub last_heartbeat: DateTime<Utc>, // The last time the device made a heartbeat request.
     pub expected_heartbeat: DateTime<Utc>, // The next time we expect the device to make a heartbeat (This is after the checkin_interval in the device's config normally, but may be shorter if a firmware update has been started.)
     pub checkin_interval: i32, // How often the device should wake up to heartbeat and refresh the display.
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct DeviceConfig {
-    pub checkin_interval: u32 // How often the device should wake up to heartbeat and refresh the display.
-}
-
-impl DeviceState {
-    pub fn config(&self) -> DeviceConfig {
-        DeviceConfig {
-            checkin_interval: self.checkin_interval as u32,
-        }
-    }
+    pub vbat_mv: i32
 }

@@ -15,6 +15,7 @@ use crate::types::{DeviceState, FirmwareState};
 pub struct DeviceHeartbeatRequest {
     pub device_id: u64, // The device will insert it's identifier here. This matches the device_id in DeviceState. Authentication is not required (or supported).
     pub current_firmware: u32, // The device will report it's current firmware. This is equivalent to the "reported firmware" elsewhere in the code.
+    pub vbat_mv: i32, // measured battery voltage
     pub protocol_version: u8 // The version of the protocol this device supports. This may be used to determine how to shape the response so the device can understand it. For now, this should always be 1.
 }
 
@@ -104,6 +105,7 @@ impl BusinessImpl {
 
         // 3. Set the last_heartbeat to the current time
         device_state.last_heartbeat = now;
+        device_state.vbat_mv = req.vbat_mv;
 
         // 4. Set the expected_heartbeat to 30 seconds + checkin_interval (if not already set above)
         if device_state.firmware_state != FirmwareState::STARTED {

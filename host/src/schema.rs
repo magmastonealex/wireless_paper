@@ -19,5 +19,6 @@ diesel::table! {
         last_heartbeat -> Timestamptz,
         expected_heartbeat -> Timestamptz,
         checkin_interval -> Int4,
+        vbat_mv -> Int4,
     }
 }

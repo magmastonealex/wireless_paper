@@ -1,0 +1,1 @@
+ALTER TABLE device_states DROP COLUMN "vbat_mv"
