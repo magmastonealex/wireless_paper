@@ -142,6 +142,7 @@ mod tests {
             last_heartbeat: now - Duration::minutes(1),
             expected_heartbeat: now + Duration::seconds(30),
             checkin_interval: 60,
+            vbat_mv: 1500,
         }
     }
 
@@ -164,6 +165,7 @@ mod tests {
             device_id: 1,
             current_firmware: 100, // Matches desired firmware
             protocol_version: 1,
+            vbat_mv: 900,
         };
 
         let response = business.handle_heartbeat(request).await.unwrap();
@@ -175,6 +177,7 @@ mod tests {
         let updated_device = business.db.get_device_state(1).await.unwrap();
         assert_eq!(updated_device.firmware_state, FirmwareState::OK);
         assert_eq!(updated_device.reported_firmware, 100);
+        assert_eq!(updated_device.vbat_mv, 900);
     }
 
     #[tokio::test]
@@ -190,6 +193,7 @@ mod tests {
             device_id: 2,
             current_firmware: 100, // Different from desired (200)
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let response = business.handle_heartbeat(request).await.unwrap();
@@ -220,6 +224,7 @@ mod tests {
             device_id: 3,
             current_firmware: 200, // Different from desired (300)
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let response = business.handle_heartbeat(request).await.unwrap();
@@ -247,6 +252,7 @@ mod tests {
             device_id: 4,
             current_firmware: 300, // Different from desired (400)
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let response = business.handle_heartbeat(request).await.unwrap();
@@ -274,6 +280,7 @@ mod tests {
             device_id: 5,
             current_firmware: 400, // Different from desired (500)
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let response = business.handle_heartbeat(request).await.unwrap();
@@ -307,6 +314,7 @@ mod tests {
             device_id: 6,
             current_firmware: 100,
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let before_request = Utc::now();
@@ -336,6 +344,7 @@ mod tests {
             device_id: 999, // Non-existent device
             current_firmware: 100,
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let result = business.handle_heartbeat(request).await;
@@ -363,6 +372,7 @@ mod tests {
             device_id: 7,
             current_firmware: 100,
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let response1 = business.handle_heartbeat(request1).await.unwrap();
@@ -376,6 +386,7 @@ mod tests {
             device_id: 7,
             current_firmware: 200, // Now matches desired
             protocol_version: 1,
+            vbat_mv: 1500,
         };
 
         let response2 = business.handle_heartbeat(request2).await.unwrap();
