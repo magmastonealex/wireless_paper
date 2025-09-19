@@ -5,11 +5,10 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use async_trait::async_trait;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{Utc, Duration};
 
 use crate::database::{Database, DatabaseError};
-use crate::types::{DeviceState, FirmwareState};
+use crate::types::FirmwareState;
 
 #[derive(Debug, PartialEq, Eq, Deserialize)]
 pub struct DeviceHeartbeatRequest {
@@ -128,7 +127,7 @@ impl BusinessImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{DateTime, Utc, Duration};
+    use chrono::{Utc, Duration};
     use crate::mock_database::MockDatabase;
 
     fn create_test_device(device_id: u64, desired_firmware: i32, reported_firmware: i32, firmware_state: FirmwareState) -> DeviceState {

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use coap_lite::{RequestType as Method, CoapRequest, ResponseType};
 use coap::{server::RequestHandler, Server};
 use tokio::runtime::Runtime;
-use std::{cell::RefCell, fs, net::SocketAddr, path::{Path, PathBuf}, sync::{Arc, RwLock}, thread, time::{self, Duration}};
+use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc, time::{self}};
 use heatshrink::Config;
 use anyhow::anyhow;
 
@@ -17,6 +17,8 @@ mod types;
 mod database;
 mod schema;
 mod rest_api;
+
+#[cfg(test)]
 mod mock_database;
 
 fn do_img() -> Result<Vec<u8>, anyhow::Error> {

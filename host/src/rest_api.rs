@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_http::{cors::CorsLayer, services::ServeDir};
