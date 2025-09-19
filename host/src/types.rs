@@ -6,7 +6,7 @@ use diesel::deserialize::{FromSql, Result as DeserializeResult};
 use serde::{Serialize, Deserialize};
 use crate::schema::{device_states, sql_types::FirmwareState as FirmwareStateSqlType};
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
 #[diesel(sql_type = FirmwareStateSqlType)]
 pub enum FirmwareState {
@@ -41,7 +41,7 @@ impl FromSql<FirmwareStateSqlType, Pg> for FirmwareState {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Queryable, Insertable, AsChangeset, Identifiable, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Queryable, Insertable, AsChangeset, Identifiable, Serialize, Deserialize)]
 #[diesel(table_name = device_states)]
 #[diesel(primary_key(device_id))]
 pub struct DeviceState {

@@ -6,13 +6,12 @@ use std::{cell::RefCell, fs, net::SocketAddr, sync::{Arc, RwLock}, thread, time:
 use heatshrink::Config;
 use anyhow::anyhow;
 
-use crate::business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest};
+use crate::{business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest}, database::DBImpl};
 
 mod business;
 mod types;
 mod database;
 mod schema;
-mod database_test;
 
 fn do_img() -> Result<Vec<u8>, anyhow::Error> {
     let raw_img = fs::read("img.bin")?;
@@ -127,16 +126,13 @@ fn main() {
     let addr = "[::]:5683";
 
 	Runtime::new().unwrap().block_on(async move {
-        // Test database operations first
-        if let Err(e) = database_test::test_database_operations().await {
-            println!("Database test failed: {}", e);
-            return;
-        }
 
         let server = Server::new_udp(addr).unwrap();
         println!("Server up on {}", addr);
         let handler  = CoapHandler{
-            business: BusinessImpl { }
+            business: BusinessImpl {
+                db: Box::new(DBImpl::new("postgres://epaper:epaper_password@127.0.0.1/epaper").await.unwrap())
+            }
         };
         server.run(handler).await.unwrap();
     });

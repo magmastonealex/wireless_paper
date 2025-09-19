@@ -1,4 +1,5 @@
 use thiserror::Error;
+use std::fmt::Debug;
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -21,13 +22,13 @@ pub enum DatabaseError {
 }
 
 #[async_trait]
-pub trait Database: Send + Sync {
+pub trait Database: Send + Sync + Debug {
     async fn get_device_state(&self, device_id: u64) -> Result<DeviceState, DatabaseError>;
-    async fn save_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError>;
     async fn update_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError>;
     async fn create_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError>;
 }
 
+#[derive(Debug)]
 pub struct DBImpl {
     connection_string: String,
 }
@@ -69,20 +70,6 @@ impl Database for DBImpl {
                 diesel::result::Error::NotFound => DatabaseError::DeviceNotFound { device_id },
                 _ => DatabaseError::QueryError(e),
             })
-    }
-
-    async fn save_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError> {
-        let mut conn = self.get_connection()?;
-
-        diesel::insert_into(device_states::table)
-            .values(device_state)
-            .on_conflict(device_states::device_id)
-            .do_update()
-            .set(device_state)
-            .execute(&mut conn)
-            .map_err(DatabaseError::QueryError)?;
-
-        Ok(())
     }
 
     async fn update_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError> {
