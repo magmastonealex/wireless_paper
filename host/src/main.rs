@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use coap_lite::{RequestType as Method, CoapRequest, ResponseType};
 use coap::{server::RequestHandler, Server};
 use tokio::runtime::Runtime;
-use std::{cell::RefCell, fs, net::SocketAddr, sync::{Arc, RwLock}, thread, time::{self, Duration}};
+use std::{cell::RefCell, fs, net::SocketAddr, path::{Path, PathBuf}, sync::{Arc, RwLock}, thread, time::{self, Duration}};
 use heatshrink::Config;
 use anyhow::anyhow;
 
@@ -41,6 +41,8 @@ fn do_img() -> Result<Vec<u8>, anyhow::Error> {
 struct CoapHandler {
     business: BusinessImpl
 }
+
+const FW_DIRECTORY: &str = "fw/";
 
 #[async_trait]
 impl RequestHandler for CoapHandler {
@@ -82,6 +84,28 @@ impl RequestHandler for CoapHandler {
                             message.set_status(ResponseType::InternalServerError);
                         }
                     }
+                } else if path.starts_with("fw/") {
+                    let resp = self.handle_firmware_request(&path).await;
+                    match resp {
+                        Ok(body) => {
+                            println!("Responding OK with {} bytes", body.len());
+                            message.message.payload = body;
+                        },
+                        Err(BusinessError::BadRequest(e)) => {
+                            println!("Bad request: {:?} ", e);
+                            message.set_status(ResponseType::BadRequest);
+                        },
+                        Err(BusinessError::InternalError(e)) => {
+                            println!("Internal Error: {:?} ", e);
+                            message.set_status(ResponseType::InternalServerError);
+                        }
+                    }
+                } else if path == "img" {
+                    let now = time::SystemTime::now();
+                    let r = do_img().unwrap(); //fs::read("comp.bin").unwrap();
+                    let took = now.elapsed().unwrap();
+                    println!("cpress to {} bytes in {} ms", r.len(), took.as_millis());
+                    message.message.payload = r;
                 } else {
                     message.set_status(ResponseType::NotFound);
                 }
@@ -96,6 +120,33 @@ impl RequestHandler for CoapHandler {
 }
 
 impl CoapHandler {
+
+    async fn handle_firmware_request(&self, urlpath: &str) -> Result<Vec<u8>, BusinessError> {
+        let binpath = match urlpath.split_once("fw/") {
+            Some((_, fwver)) => {
+                if fwver.contains("/") || fwver.contains("..") {
+                    return Err(BusinessError::BadRequest(anyhow!("path contains forbidden characters")));
+                }
+                println!("Got request for firmware version: {:?}", fwver);
+                let mut fwpath = PathBuf::from(FW_DIRECTORY);
+                fwpath.push(fwver);
+
+                fwpath
+            }
+            None => {
+                return Err(BusinessError::BadRequest(anyhow!("path contains forbidden characters")));
+            }
+        };
+
+        println!("Sending {:?}", binpath);
+
+        match fs::read(binpath) {
+            Ok(b) => Ok(b),
+            Err(e) => {
+                Err(BusinessError::InternalError(e.into()))
+            }
+        }
+    }
 
     // Handle a heartbeat request.
     // req is the CBOR-encoded payload, which should match a DeviceHeartbeatRequest structure once decoded.
