@@ -1,7 +1,6 @@
 
 use std::fmt::Debug;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -37,7 +36,7 @@ pub enum BusinessError {
 
 #[derive(Debug)]
 pub struct BusinessImpl {
-    pub db: Box<dyn Database + Send + Sync>,
+    pub db: Arc<dyn Database + Send + Sync>,
 }
 
 impl BusinessImpl {
@@ -123,62 +122,12 @@ impl BusinessImpl {
     }
 }
 
-// Mock Database implementation for testing
-#[derive(Debug)]
-pub struct MockDatabase {
-    devices: Arc<Mutex<HashMap<u64, DeviceState>>>,
-}
-
-impl MockDatabase {
-    pub fn new() -> Self {
-        Self {
-            devices: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub fn insert_device(&self, device: DeviceState) {
-        let mut devices = self.devices.lock().unwrap();
-        devices.insert(device.device_id as u64, device);
-    }
-
-    pub fn get_device(&self, device_id: u64) -> Option<DeviceState> {
-        let devices = self.devices.lock().unwrap();
-        devices.get(&device_id).cloned()
-    }
-}
-
-#[async_trait]
-impl Database for MockDatabase {
-    async fn get_device_state(&self, device_id: u64) -> Result<DeviceState, DatabaseError> {
-        let devices = self.devices.lock().unwrap();
-        devices.get(&device_id).cloned()
-            .ok_or(DatabaseError::DeviceNotFound { device_id })
-    }
-
-    async fn update_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError> {
-        let mut devices = self.devices.lock().unwrap();
-        let device_id = device_state.device_id as u64;
-
-        if devices.contains_key(&device_id) {
-            devices.insert(device_id, device_state.clone());
-            Ok(())
-        } else {
-            Err(DatabaseError::DeviceNotFound { device_id })
-        }
-    }
-
-    async fn create_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError> {
-        let mut devices = self.devices.lock().unwrap();
-        let device_id = device_state.device_id as u64;
-        devices.insert(device_id, device_state.clone());
-        Ok(())
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use chrono::{DateTime, Utc, Duration};
+    use crate::mock_database::MockDatabase;
 
     fn create_test_device(device_id: u64, desired_firmware: i32, reported_firmware: i32, firmware_state: FirmwareState) -> DeviceState {
         let now = Utc::now();
@@ -196,7 +145,7 @@ mod tests {
 
     fn create_business_impl(mock_db: MockDatabase) -> BusinessImpl {
         BusinessImpl {
-            db: Box::new(mock_db),
+            db: Arc::new(mock_db),
         }
     }
 

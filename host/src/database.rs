@@ -26,6 +26,8 @@ pub trait Database: Send + Sync + Debug {
     async fn get_device_state(&self, device_id: u64) -> Result<DeviceState, DatabaseError>;
     async fn update_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError>;
     async fn create_device_state(&self, device_state: &DeviceState) -> Result<(), DatabaseError>;
+    async fn list_all_devices(&self) -> Result<Vec<DeviceState>, DatabaseError>;
+    async fn delete_device_state(&self, device_id: u64) -> Result<(), DatabaseError>;
 }
 
 #[derive(Debug)]
@@ -98,6 +100,30 @@ impl Database for DBImpl {
             .map_err(DatabaseError::QueryError)?;
 
         Ok(())
+    }
+
+    async fn list_all_devices(&self) -> Result<Vec<DeviceState>, DatabaseError> {
+        let mut conn = self.get_connection()?;
+
+        device_states::table
+            .load::<DeviceState>(&mut conn)
+            .map_err(DatabaseError::QueryError)
+    }
+
+    async fn delete_device_state(&self, device_id: u64) -> Result<(), DatabaseError> {
+        let mut conn = self.get_connection()?;
+
+        let rows_deleted = diesel::delete(
+            device_states::table.filter(device_states::device_id.eq(device_id as i64))
+        )
+        .execute(&mut conn)
+        .map_err(DatabaseError::QueryError)?;
+
+        if rows_deleted == 0 {
+            Err(DatabaseError::DeviceNotFound { device_id })
+        } else {
+            Ok(())
+        }
     }
 }
 

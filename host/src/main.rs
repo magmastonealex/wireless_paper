@@ -6,12 +6,18 @@ use std::{cell::RefCell, fs, net::SocketAddr, sync::{Arc, RwLock}, thread, time:
 use heatshrink::Config;
 use anyhow::anyhow;
 
-use crate::{business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest}, database::DBImpl};
+use crate::{
+    business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest},
+    database::DBImpl,
+    rest_api::{create_router, AppState}
+};
 
 mod business;
 mod types;
 mod database;
 mod schema;
+mod rest_api;
+mod mock_database;
 
 fn do_img() -> Result<Vec<u8>, anyhow::Error> {
     let raw_img = fs::read("img.bin")?;
@@ -45,8 +51,8 @@ impl RequestHandler for CoapHandler {
         // Log data about the request we got.
         match request.get_method() {
             &Method::Get => println!("request by get {}", request.get_path()),
-            &Method::Post => println!("request by post {}", String::from_utf8(request.message.payload.clone()).unwrap()),
-            &Method::Put => println!("request by put {}", String::from_utf8(request.message.payload.clone()).unwrap()),
+            &Method::Post => println!("request by post {} ({} bytes)", request.get_path(), request.message.payload.len()),
+            &Method::Put => println!("request by put {} ({} bytes)", request.get_path(), request.message.payload.len()),
             _ => println!("request by other method"),
         };
 
@@ -60,8 +66,8 @@ impl RequestHandler for CoapHandler {
         match request.response {
             Some(ref mut message) => {
                 if path == "hb" {
-                    // Heartbeat request was received.
-                    let resp = self.handle_heartbeat_request(123u64, request.message.payload.clone()).await;
+                    // Heartbeat request was received. We'll extract device_id from the payload.
+                    let resp = self.handle_heartbeat_request(request.message.payload.clone()).await;
                     match resp {
                         Ok(body) => {
                             println!("Responding OK with {} bytes", body.len());
@@ -92,10 +98,9 @@ impl RequestHandler for CoapHandler {
 impl CoapHandler {
 
     // Handle a heartbeat request.
-    // device_id is the unique identifier for the device.
     // req is the CBOR-encoded payload, which should match a DeviceHeartbeatRequest structure once decoded.
     // The return value is a Result, which in the OK case contains a CBOR-encoded equivalent to the DeviceHeartbeatResponse structure. In the failure case, a BusinessError can be returned which will result in a non-200 status code sent to the client.
-    async fn handle_heartbeat_request(&self, _device_id: u64, req: Vec<u8>) -> Result<Vec<u8>, BusinessError> {
+    async fn handle_heartbeat_request(&self, req: Vec<u8>) -> Result<Vec<u8>, BusinessError> {
         // This should call out to a helper to decode the request, call the relevant business logic function, encode the response, and return it.
         // Do not place any actual business logic here.
         let r: DeviceHeartbeatRequest = match ciborium::from_reader(&req[..]) {
@@ -123,17 +128,41 @@ impl CoapHandler {
 }
 
 fn main() {
-    let addr = "[::]:5683";
+    let coap_addr = "[::]:5683";
+    let http_addr = "0.0.0.0:8080";
 
-	Runtime::new().unwrap().block_on(async move {
+    Runtime::new().unwrap().block_on(async move {
+        // Create shared database instance
+        let db_conn_str = "postgres://epaper:epaper_password@127.0.0.1/epaper";
+        let shared_db = Arc::new(DBImpl::new(db_conn_str).await.unwrap());
 
-        let server = Server::new_udp(addr).unwrap();
-        println!("Server up on {}", addr);
-        let handler  = CoapHandler{
+        // Create CoAP server
+        let coap_server = Server::new_udp(coap_addr).unwrap();
+        println!("CoAP server up on {}", coap_addr);
+        let coap_handler = CoapHandler {
             business: BusinessImpl {
-                db: Box::new(DBImpl::new("postgres://epaper:epaper_password@127.0.0.1/epaper").await.unwrap())
+                db: shared_db.clone(),
             }
         };
-        server.run(handler).await.unwrap();
+
+        // Create HTTP server
+        let app_state = AppState { db: shared_db };
+        let app = create_router(app_state);
+        let listener = tokio::net::TcpListener::bind(http_addr).await.unwrap();
+        println!("HTTP server up on {}", http_addr);
+
+        // Run both servers concurrently
+        tokio::select! {
+            result = coap_server.run(coap_handler) => {
+                if let Err(e) = result {
+                    eprintln!("CoAP server error: {}", e);
+                }
+            }
+            result = axum::serve(listener, app) => {
+                if let Err(e) = result {
+                    eprintln!("HTTP server error: {}", e);
+                }
+            }
+        }
     });
 }

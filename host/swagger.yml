@@ -1,0 +1,430 @@
+openapi: 3.0.3
+info:
+  title: E-Paper IoT Device Management API
+  description: |
+    REST API for managing IoT e-paper display devices. This API provides CRUD operations
+    for device management including firmware tracking, heartbeat monitoring, and device configuration.
+
+    The API runs alongside a CoAP server (port 5683) that handles device heartbeat communications.
+  version: 0.1.0
+  contact:
+    name: E-Paper Server
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://0.0.0.0:8080
+    description: Local server (all interfaces)
+
+paths:
+  /api/devices:
+    get:
+      summary: List all devices
+      description: Retrieve a list of all registered IoT devices
+      operationId: listDevices
+      tags:
+        - Devices
+      responses:
+        '200':
+          description: Successful response with list of devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceState'
+              examples:
+                empty_list:
+                  summary: Empty device list
+                  value: []
+                multiple_devices:
+                  summary: Multiple devices
+                  value:
+                    - device_id: 1001
+                      device_friendly_name: "Living Room Display"
+                      desired_firmware: 110
+                      reported_firmware: 110
+                      firmware_state: "OK"
+                      last_heartbeat: "2025-09-19T15:30:00Z"
+                      expected_heartbeat: "2025-09-19T15:31:30Z"
+                      checkin_interval: 90
+                    - device_id: 1002
+                      device_friendly_name: "Kitchen Display"
+                      desired_firmware: 105
+                      reported_firmware: 100
+                      firmware_state: "PENDING"
+                      last_heartbeat: "2025-09-19T15:29:45Z"
+                      expected_heartbeat: "2025-09-19T15:31:15Z"
+                      checkin_interval: 90
+
+    post:
+      summary: Create a new device
+      description: Register a new IoT device in the system
+      operationId: createDevice
+      tags:
+        - Devices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceRequest'
+            examples:
+              new_device:
+                summary: Create new e-paper display
+                value:
+                  device_id: 1003
+                  device_friendly_name: "Bedroom Display"
+                  desired_firmware: 110
+                  checkin_interval: 60
+      responses:
+        '201':
+          description: Device created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceState'
+              examples:
+                created_device:
+                  summary: Successfully created device
+                  value:
+                    device_id: 1003
+                    device_friendly_name: "Bedroom Display"
+                    desired_firmware: 110
+                    reported_firmware: 110
+                    firmware_state: "OK"
+                    last_heartbeat: "2025-09-19T15:30:00Z"
+                    expected_heartbeat: "2025-09-19T15:31:30Z"
+                    checkin_interval: 60
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/devices/{device_id}:
+    parameters:
+      - name: device_id
+        in: path
+        required: true
+        description: Unique identifier for the device
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 1001
+
+    get:
+      summary: Get device by ID
+      description: Retrieve detailed information about a specific device
+      operationId: getDevice
+      tags:
+        - Devices
+      responses:
+        '200':
+          description: Device found and returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceState'
+              examples:
+                device_ok:
+                  summary: Device with OK firmware state
+                  value:
+                    device_id: 1001
+                    device_friendly_name: "Living Room Display"
+                    desired_firmware: 110
+                    reported_firmware: 110
+                    firmware_state: "OK"
+                    last_heartbeat: "2025-09-19T15:30:00Z"
+                    expected_heartbeat: "2025-09-19T15:31:30Z"
+                    checkin_interval: 90
+                device_pending:
+                  summary: Device with pending firmware update
+                  value:
+                    device_id: 1002
+                    device_friendly_name: "Kitchen Display"
+                    desired_firmware: 105
+                    reported_firmware: 100
+                    firmware_state: "PENDING"
+                    last_heartbeat: "2025-09-19T15:29:45Z"
+                    expected_heartbeat: "2025-09-19T15:31:15Z"
+                    checkin_interval: 90
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                device_not_found:
+                  summary: Device not found error
+                  value:
+                    error: "Device with ID 9999 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    put:
+      summary: Update device
+      description: |
+        Update device properties. All fields in the request body are optional,
+        allowing for partial updates. Only provided fields will be modified.
+      operationId: updateDevice
+      tags:
+        - Devices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+            examples:
+              partial_update:
+                summary: Update only firmware and name
+                value:
+                  device_friendly_name: "Updated Living Room Display"
+                  desired_firmware: 115
+              full_update:
+                summary: Update all fields
+                value:
+                  device_friendly_name: "Completely Updated Display"
+                  desired_firmware: 120
+                  firmware_state: "PENDING"
+                  checkin_interval: 120
+              name_only:
+                summary: Update only the friendly name
+                value:
+                  device_friendly_name: "New Display Name"
+      responses:
+        '200':
+          description: Device updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceState'
+              examples:
+                updated_device:
+                  summary: Successfully updated device
+                  value:
+                    device_id: 1001
+                    device_friendly_name: "Updated Living Room Display"
+                    desired_firmware: 115
+                    reported_firmware: 110
+                    firmware_state: "PENDING"
+                    last_heartbeat: "2025-09-19T15:30:00Z"
+                    expected_heartbeat: "2025-09-19T15:36:00Z"
+                    checkin_interval: 90
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                device_not_found:
+                  summary: Device not found error
+                  value:
+                    error: "Device with ID 9999 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    delete:
+      summary: Delete device
+      description: Remove a device from the system permanently
+      operationId: deleteDevice
+      tags:
+        - Devices
+      responses:
+        '204':
+          description: Device deleted successfully (no content returned)
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                device_not_found:
+                  summary: Device not found error
+                  value:
+                    error: "Device with ID 9999 not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+components:
+  schemas:
+    DeviceState:
+      type: object
+      description: Complete state information for an IoT device
+      required:
+        - device_id
+        - device_friendly_name
+        - desired_firmware
+        - reported_firmware
+        - firmware_state
+        - last_heartbeat
+        - expected_heartbeat
+        - checkin_interval
+      properties:
+        device_id:
+          type: integer
+          format: int64
+          description: Unique identifier for the device
+          example: 1001
+        device_friendly_name:
+          type: string
+          description: Human-readable name for the device
+          example: "Living Room E-Paper Display"
+          maxLength: 255
+        desired_firmware:
+          type: integer
+          format: int32
+          description: The firmware version the device should be running
+          example: 110
+          minimum: 1
+        reported_firmware:
+          type: integer
+          format: int32
+          description: The firmware version currently reported by the device
+          example: 105
+          minimum: 1
+        firmware_state:
+          $ref: '#/components/schemas/FirmwareState'
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: Timestamp of the last heartbeat received from the device
+          example: "2025-09-19T15:30:00.123456Z"
+        expected_heartbeat:
+          type: string
+          format: date-time
+          description: Timestamp when the next heartbeat is expected from the device
+          example: "2025-09-19T15:31:30.123456Z"
+        checkin_interval:
+          type: integer
+          format: int32
+          description: How often the device should check in (in seconds)
+          example: 90
+          minimum: 10
+          maximum: 86400
+
+    CreateDeviceRequest:
+      type: object
+      description: |
+        Request payload for creating a new device. When created:
+        - reported_firmware will default to the same value as desired_firmware
+        - firmware_state will default to "OK"
+      required:
+        - device_id
+        - device_friendly_name
+        - desired_firmware
+        - checkin_interval
+      properties:
+        device_id:
+          type: integer
+          format: int64
+          description: Unique identifier for the device (must not already exist)
+          example: 1001
+        device_friendly_name:
+          type: string
+          description: Human-readable name for the device
+          example: "Kitchen E-Paper Display"
+          maxLength: 255
+        desired_firmware:
+          type: integer
+          format: int32
+          description: The firmware version the device should be running
+          example: 110
+          minimum: 1
+        checkin_interval:
+          type: integer
+          format: int32
+          description: How often the device should check in (in seconds)
+          example: 60
+          minimum: 10
+          maximum: 86400
+
+    UpdateDeviceRequest:
+      type: object
+      description: |
+        Request payload for updating a device. All fields are optional,
+        allowing for partial updates. Only provided fields will be modified.
+      properties:
+        device_friendly_name:
+          type: string
+          description: Human-readable name for the device
+          example: "Updated Kitchen Display"
+          maxLength: 255
+        desired_firmware:
+          type: integer
+          format: int32
+          description: The firmware version the device should be running
+          example: 115
+          minimum: 1
+        firmware_state:
+          $ref: '#/components/schemas/FirmwareState'
+        checkin_interval:
+          type: integer
+          format: int32
+          description: How often the device should check in (in seconds)
+          example: 120
+          minimum: 10
+          maximum: 86400
+
+    FirmwareState:
+      type: string
+      description: |
+        Current state of firmware upgrade process:
+        - **OK**: Device is running the desired firmware version
+        - **PENDING**: Firmware upgrade has been requested but device hasn't picked it up yet
+        - **STARTED**: Device has received the upgrade request and is in progress (5-minute timeout)
+        - **FAILED**: Firmware upgrade failed, device should stay on current version
+      enum:
+        - OK
+        - PENDING
+        - STARTED
+        - FAILED
+      example: "PENDING"
+
+    ApiError:
+      type: object
+      description: Error response format
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Device with ID 9999 not found"
+
+tags:
+  - name: Devices
+    description: Operations for managing IoT devices
+
+externalDocs:
+  description: E-Paper IoT Server Documentation
+  url: https://github.com/example/epaper-server
