@@ -128,7 +128,7 @@ impl BusinessImpl {
 mod tests {
     use super::*;
     use chrono::{Utc, Duration};
-    use crate::mock_database::MockDatabase;
+    use crate::{mock_database::MockDatabase, types::DeviceState};
 
     fn create_test_device(device_id: u64, desired_firmware: i32, reported_firmware: i32, firmware_state: FirmwareState) -> DeviceState {
         let now = Utc::now();
