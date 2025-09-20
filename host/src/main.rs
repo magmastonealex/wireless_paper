@@ -153,6 +153,7 @@ impl CoapHandler {
     // Handle a heartbeat request.
     // req is the CBOR-encoded payload, which should match a DeviceHeartbeatRequest structure once decoded.
     // The return value is a Result, which in the OK case contains a CBOR-encoded equivalent to the DeviceHeartbeatResponse structure. In the failure case, a BusinessError can be returned which will result in a non-200 status code sent to the client.
+    // In the future, I want to rework this to not use CBOR. It's "fine" on the rust/python side, but the C libraries for encode/decode are rather painful.
     async fn handle_heartbeat_request(&self, req: Vec<u8>) -> Result<Vec<u8>, BusinessError> {
         // This should call out to a helper to decode the request, call the relevant business logic function, encode the response, and return it.
         // Do not place any actual business logic here.

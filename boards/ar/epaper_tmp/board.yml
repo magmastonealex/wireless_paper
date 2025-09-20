@@ -1,6 +1,0 @@
-board:
-  name: epaper_driver
-  full_name: E-paper driver board example
-  vendor: ar
-  socs:
-    - name: nrf54l15

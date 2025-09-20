@@ -5,6 +5,12 @@
 #include <string.h>
 #include "cbor.h"
 
+// CBOR encode/decode routines for heartbeats.
+// In retrospect, CBOR was _really_ the wrong choice here.
+// (or perhaps jsut the use of zcbor)
+// We're sending map keys as strings over the wire,
+// which is just terrible. At some point I should re-work this
+// to use integer keys or even better, capnproto/msgpack/raw-structs.
 
 /*
  * Encode a DeviceHeartbeatRequest into CBOR format
@@ -18,10 +24,9 @@
 int encode_heartbeat_request(const struct device_heartbeat_request *req,
                            uint8_t *buffer, size_t buffer_size, size_t *encoded_size)
 {
-    zcbor_state_t states[4];
     bool success;
 
-    zcbor_new_state(states, ARRAY_SIZE(states), buffer, buffer_size, 1);
+    ZCBOR_STATE_E(states, 4, buffer, buffer_size, 1);
 
     /* Start encoding a map with 3 key-value pairs */
     success = zcbor_map_start_encode(states, 4);
@@ -81,16 +86,12 @@ int encode_heartbeat_request(const struct device_heartbeat_request *req,
 int decode_heartbeat_response(const uint8_t *buffer, size_t buffer_size,
                             struct device_heartbeat_response *resp)
 {
-    zcbor_state_t states[3];
-    bool success;
-    size_t map_count;
-    struct zcbor_string key;
-    uint32_t value;
+    
 
-    zcbor_new_state(states, ARRAY_SIZE(states), buffer, buffer_size, 1);
+    ZCBOR_STATE_D(states, 3, buffer, buffer_size, 1, 2);
 
     /* Start decoding the map */
-    success = zcbor_map_start_decode(states);
+    bool success = zcbor_map_start_decode(states);
     if (!success) {
         return -EINVAL;
     }
@@ -98,18 +99,24 @@ int decode_heartbeat_response(const uint8_t *buffer, size_t buffer_size,
     /* Initialize response structure */
     memset(resp, 0, sizeof(*resp));
 
+    struct zcbor_string key;
+
     /* Decode map entries - we expect 2 key-value pairs */
-    while (zcbor_map_decode_key_val(states, &key, &value)) {
+    while (!zcbor_array_at_end(states)) {
+        // maps are always keyed with strings in our protocol.
+        success = zcbor_tstr_decode(states, &key);
+		if (!success) {
+			return -EINVAL;
+		}
+
         if (key.len == strlen("desired_firmware") &&
             memcmp(key.value, "desired_firmware", key.len) == 0) {
-            /* Decode desired_firmware value */
             success = zcbor_uint32_decode(states, &resp->desired_firmware);
             if (!success) {
                 return -EINVAL;
             }
         } else if (key.len == strlen("checkin_interval") &&
                    memcmp(key.value, "checkin_interval", key.len) == 0) {
-            /* Decode checkin_interval value */
             success = zcbor_uint32_decode(states, &resp->checkin_interval);
             if (!success) {
                 return -EINVAL;

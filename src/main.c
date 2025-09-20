@@ -38,6 +38,8 @@
 #include <zcbor_common.h>
 #include <zcbor_encode.h>
 
+#include "coap_request.h"
+
 
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 
@@ -220,18 +222,11 @@ static void do_firmware_download(struct sockaddr *sa, uint32_t version)
 
 */
 
-static K_SEM_DEFINE(image_done_sem, 0, 1);
-
-const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
-
 #define DISPLAY_WIDTH 800
 #define DISPLAY_HEIGHT 480
 
 struct image_write_context {
-    uint32_t high_water_mark;
-    uint32_t has_failed;
-    uint32_t is_done;
-
+    struct device *display_dev;
     size_t total_produced;
     
     uint16_t y_index;
@@ -241,7 +236,7 @@ struct image_write_context {
     heatshrink_decoder hsd;
 };
 
-static void write_one_line(uint16_t y, uint8_t *buf, uint16_t num_pix) {
+static void write_one_line(struct device *display_dev, uint16_t y, uint8_t *buf, uint16_t num_pix) {
     struct display_buffer_descriptor buf_desc = {
         .buf_size = num_pix,
         .width = num_pix*8,
@@ -255,51 +250,19 @@ static void write_one_line(uint16_t y, uint8_t *buf, uint16_t num_pix) {
     }
 }
 
-static void img_coap_response(int16_t result_code, size_t offset, const uint8_t *payload, size_t len,
-			     bool last_block, void *user_data)
+static int img_coap_response(const uint8_t *payload, size_t len, size_t offset, bool last_block, void *user_data)
 {
     struct image_write_context * ctx = (struct image_write_context *) user_data;
 
-    //LOG_INF("CoAP response, result_code=%d, offset=%u, len=%u is-last=%s", result_code, offset, len, last_block ? "yes" : "no");
-    if (result_code != COAP_RESPONSE_CODE_CONTENT) {
-		LOG_ERR("Error during CoAP download, result_code=%d", result_code);
-        ctx->has_failed = 1;
-        k_sem_give(&image_done_sem);
-		return;
-    }
-    
-    if (ctx->has_failed == 1) {
-        LOG_ERR("Request has failed, but we have no way to signal this right now. Just early return.");
-        k_sem_give(&image_done_sem);
-        return;
-    }
-
-    // We need to receive the bytes in order - offset should always be == the high-water mark.
-    if (offset != ctx->high_water_mark) {
-        LOG_ERR("Invalid offset received (out of order or duplicate?)");
-        ctx->has_failed = 1;
-        k_sem_give(&image_done_sem);
-        return;
-    }
-
-    ctx->high_water_mark = offset + len;
-
-    
-    // this needs to be totally re-written at some point... lots of memory waste and grossness here. For now, I want something I can flash
-    // to test the hardware :)
-
-    // this feels inefficient - copy into the buffer 100 bytes at a time until we have a full buffer.
     size_t payload_pos = 0;
     HSD_sink_res sres;
     HSD_poll_res pres;
     HSD_finish_res fres;
 
     while (payload_pos < len) {
-
         size_t size_in_payload = len - payload_pos;
         size_t actually_read = 0;
         sres = heatshrink_decoder_sink(&ctx->hsd, payload + payload_pos, size_in_payload, &actually_read);
-        //LOG_INF("Sunk %zu bytes (sres %d)", actually_read, sres);
         payload_pos+= actually_read;
 
 
@@ -308,10 +271,8 @@ static void img_coap_response(int16_t result_code, size_t offset, const uint8_t 
             size_t did_poll = 0;
             pres = heatshrink_decoder_poll(&ctx->hsd, ctx->buf + ctx->num_bytes_in_buf, buffer_size_left, &did_poll);
             if (pres < 0) { 
-                LOG_ERR("pres failed: %d", pres);
-                ctx->has_failed = 1;
-                k_sem_give(&image_done_sem);
-                return;
+                LOG_ERR("pres1 failed: %d", pres);
+                return -1;
             }
             //LOG_INF("Polled for %zu bytes", did_poll);
             ctx->num_bytes_in_buf += did_poll;
@@ -320,7 +281,7 @@ static void img_coap_response(int16_t result_code, size_t offset, const uint8_t 
             if (ctx->num_bytes_in_buf == 100) {
                 //LOG_INF("Writing line to display...");
                 //memset(ctx->buf, 0xAA, 100);
-                write_one_line(ctx->y_index, ctx->buf, 100);
+                write_one_line(ctx->display_dev, ctx->y_index, ctx->buf, 100);
                 ctx->y_index++;
                 ctx->num_bytes_in_buf = 0;
             }
@@ -329,8 +290,6 @@ static void img_coap_response(int16_t result_code, size_t offset, const uint8_t 
     }
 
     LOG_INF("Total produced: %zu", ctx->total_produced);
-
-    
 	    
     if (last_block) {
         fres = heatshrink_decoder_finish(&ctx->hsd);
@@ -342,9 +301,7 @@ static void img_coap_response(int16_t result_code, size_t offset, const uint8_t 
                 pres = heatshrink_decoder_poll(&ctx->hsd, ctx->buf + ctx->num_bytes_in_buf, buffer_size_left, &did_poll);
                 if (pres < 0) { 
                     LOG_ERR("pres failed: %d", pres);
-                    ctx->has_failed = 1;
-                    k_sem_give(&image_done_sem);
-                    return;
+                    return -1;
                 }
                 //LOG_INF("Polled for %zu bytes", did_poll);
                 ctx->num_bytes_in_buf += did_poll;
@@ -353,7 +310,7 @@ static void img_coap_response(int16_t result_code, size_t offset, const uint8_t 
                 if (ctx->num_bytes_in_buf == 100) {
                     //LOG_INF("Writing line to display...");
                     //memset(ctx->buf, 0xAA, 100);
-                    write_one_line(ctx->y_index, ctx->buf, 100);
+                    write_one_line(ctx->display_dev, ctx->y_index, ctx->buf, 100);
                     ctx->y_index++;
                     ctx->num_bytes_in_buf = 0;
                 }
@@ -361,68 +318,13 @@ static void img_coap_response(int16_t result_code, size_t offset, const uint8_t 
         } else {
             LOG_INF("Finish result: %d", fres);
         }
-        LOG_INF("CoAP img download done, got %u bytes, %u leftover", ctx->total_produced, ctx->num_bytes_in_buf);
-        ctx->is_done = 1;
-        k_sem_give(&image_done_sem);
     }
+
+    return 0;
 }
 
 static struct image_write_context img_write = {0};
 
-static void do_image_download(struct sockaddr *sa)
-{
-	int ret;
-	int sockfd;
-
-    int err = 0;
-    
-    display_blanking_on(display_dev);
-    memset(&img_write, 0, sizeof(struct image_write_context));
-    //img_write.version = version;
-    heatshrink_decoder_reset(&img_write.hsd);
-    
-
-	struct coap_client_request request = {.method = COAP_METHOD_GET,
-					      .confirmable = true,
-					      .path = "/img",
-					      .payload = NULL,
-					      .len = 0,
-					      .cb = img_coap_response,
-					      .options = NULL,
-					      .num_options = 0,
-					      .user_data = (void*) &img_write};
-
-	LOG_INF("Starting CoAP image download using %s", (AF_INET == sa->sa_family) ? "IPv4" : "IPv6");
-
-	sockfd = zsock_socket(sa->sa_family, SOCK_DGRAM, 0);
-	if (sockfd < 0) {
-		LOG_ERR("Failed to create socket, err %d", errno);
-		return;
-	}
-
-	ret = coap_client_req(&client, sockfd, sa, &request, NULL);
-	if (ret) {
-		LOG_ERR("Failed to send CoAP request, err %d", ret);
-		return;
-	}
-
-	/* Wait for CoAP request to complete - we should probably put an upper bound on this and cancel requests afterwards? Does that work the way we think it should?  */
-	k_sem_take(&image_done_sem, K_FOREVER);
-
-    if (img_write.has_failed != 0) {
-        LOG_ERR("Image write has failed.");
-    } else if (img_write.is_done != 1) {
-        LOG_ERR("Semaphore returned but write is not complete?");
-    } else {
-        LOG_INF("Image download completed. Un-blanking display...");
-        display_blanking_off(display_dev);
-        gpio_pin_set_dt(&epd_en, 0); // This seems to help with the voltage "spike" (not particularly fast) that happens when the epd boost converter turns off. It seems to semi-reliably keep it under 4V, which will keep the nrf happier. When we switch to a custom impl, we will do this instead of (?) turning of the boost converter when the write is complete.
-    }
-
-	coap_client_cancel_requests(&client);
-
-	zsock_close(sockfd);
-}
 
 static const struct gpio_dt_spec green_led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 
@@ -444,8 +346,8 @@ int main(void)
     gpio_pin_configure_dt(&epd_en, GPIO_OUTPUT_ACTIVE);
     gpio_pin_set_dt(&epd_en, 1);
 
-    //gpio_pin_configure_dt(&green_led, GPIO_OUTPUT_ACTIVE);
-    //gpio_pin_set_dt(&green_led, 1);
+    gpio_pin_configure_dt(&green_led, GPIO_OUTPUT_ACTIVE);
+    gpio_pin_set_dt(&green_led, 1);
 
     // in the future, only do this when we've verified server connectivity or something similar.
     if (!boot_is_img_confirmed()) {
@@ -457,7 +359,7 @@ int main(void)
     }
 
     /* Get the display device */
-    //const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+    const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
     struct display_capabilities caps;
     uint32_t display_width, display_height;
 
@@ -548,7 +450,6 @@ int main(void)
 
 	LOG_INF("Black box drawn successfully in the center of the display.");
     
-
   	int ret;
 
 	ret = coap_client_init(&client, NULL);
@@ -575,19 +476,26 @@ int main(void)
                 addr6->sin6_port = htons(5683);
                 zsock_inet_pton(AF_INET6, "fd7d:56af:ad45:1:9fc6:1d58:d2db:2517", &addr6->sin6_addr);
 
-                do_image_download(&sa/*, 0x00000001*/);
+                //do_image_download(&sa/*, 0x00000001*/);
+                display_blanking_on(display_dev);
+                coap_request_result_t  res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, NULL, 0, img_coap_response, (void*) &img_write, 90);
+                display_blanking_off(display_dev);
+                gpio_pin_set_dt(&epd_en, 0); // avoid a voltage spike when boost turns off by using pmos as a diode
+
+                LOG_INF("return code: %d", res);
+
                 tried_coap = 1;
 
                 LOG_INF("About to hibernate...");
                 k_msleep(5000);
-                int hibres = mfd_npm2100_hibernate(npm2100_pmic, 60000, false);
-                LOG_INF("hibres: %d");
+                //int hibres = mfd_npm2100_hibernate(npm2100_pmic, 60000, false);
+                //LOG_INF("hibres: %d", hibres);
             }
         } else {
             LOG_INF("Not connected - not attempting CoAP request.");
         }
 
-        //gpio_pin_toggle_dt(&green_led);
+        gpio_pin_toggle_dt(&green_led);
 		
         k_msleep(1000);
     }
