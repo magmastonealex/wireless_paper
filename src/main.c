@@ -11,6 +11,8 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
+#include <zephyr/drivers/hwinfo.h>
+
 #include <zephyr/net/openthread.h>
 #include <openthread/thread.h>
 #include <openthread/dataset.h>
@@ -39,6 +41,10 @@
 #include <zcbor_encode.h>
 
 #include "coap_request.h"
+#include "cbor.h"
+
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/drivers/sensor/npm2100_vbat.h>
 
 
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
@@ -225,6 +231,26 @@ static void do_firmware_download(struct sockaddr *sa, uint32_t version)
 #define DISPLAY_WIDTH 800
 #define DISPLAY_HEIGHT 480
 
+struct buffer_write_context {
+    uint8_t *buf;
+    size_t max_size;
+    size_t current_size;
+};
+
+static int buffer_coap_response(const uint8_t *payload, size_t len, size_t offset, bool last_block, void *user_data) {
+    struct buffer_write_context * ctx = (struct buffer_write_context *) user_data;
+
+    size_t free_space = ctx->max_size - ctx->current_size;
+    size_t to_copy = MIN(len, free_space);
+
+    LOG_INF("Inserting %zu bytes to buffer", to_copy);
+
+    memcpy(ctx->buf + ctx->current_size, payload, to_copy);
+    ctx->current_size += to_copy;
+
+    return 0;
+}
+
 struct image_write_context {
     struct device *display_dev;
     size_t total_produced;
@@ -253,7 +279,6 @@ static void write_one_line(struct device *display_dev, uint16_t y, uint8_t *buf,
 static int img_coap_response(const uint8_t *payload, size_t len, size_t offset, bool last_block, void *user_data)
 {
     struct image_write_context * ctx = (struct image_write_context *) user_data;
-
     size_t payload_pos = 0;
     HSD_sink_res sres;
     HSD_poll_res pres;
@@ -323,6 +348,35 @@ static int img_coap_response(const uint8_t *payload, size_t len, size_t offset, 
     return 0;
 }
 
+int32_t get_vbat_mV() {
+    const struct device *npm2100_vbat = DEVICE_DT_GET(DT_NODELABEL(npm2100_vbat));
+    if (!device_is_ready(npm2100_vbat)) {
+        LOG_ERR("vbat device not ready.");
+        return -1;
+    }
+
+    struct sensor_value adc_delay = {0};
+    sensor_attr_set(npm2100_vbat, SENSOR_CHAN_GAUGE_VOLTAGE, SENSOR_ATTR_NPM2100_ADC_DELAY, &adc_delay);
+
+    int ret = sensor_sample_fetch_chan(npm2100_vbat, SENSOR_CHAN_GAUGE_VOLTAGE);
+    if (ret < 0) {
+        LOG_ERR("failed to sample vbat: %d", ret);
+        return -1;
+    }
+
+    struct sensor_value vbat_res;
+
+    ret = sensor_channel_get(npm2100_vbat, SENSOR_CHAN_GAUGE_VOLTAGE, &vbat_res);
+    if (ret < 0) {
+        LOG_ERR("failed to get vbat: %d", ret);
+        return -1;
+    }
+
+    int32_t vbat_mv = (int32_t) sensor_value_to_milli(&vbat_res);
+
+    return vbat_mv;
+}
+
 static struct image_write_context img_write = {0};
 
 
@@ -373,79 +427,11 @@ int main(void)
     display_width = caps.x_resolution;
     display_height = caps.y_resolution;
 
-    LOG_INF("Display resolution: %d x %d", display_width, display_height);
-    LOG_INF("Supported pixel formats: %x", caps.supported_pixel_formats);
-    LOG_INF("Current pixel format: %x", caps.current_pixel_format);
-    LOG_INF("Current orientation: %d", caps.current_orientation);
-
-    
-    // OT does a setting write every startup to save new network and parent info.
-    // I _really_ don't like this unneccessary flash wear.
-    // 
-
-    // otDatasetParseTlvs -> convert binary dataset into real dataset
-    // otDatasetSetActiveTlvs -> Sets binary dataset as active dataset.
-    //
-    // Can we disable settings integration and just do an `otDatasetSetActiveTlvs` on every boot?
-    // Probably will take a bit longer.
-    // Alternatively, can we disable writing to `kKeyNetworkInfo` / `kKeyParentInfo`?
-
-    
     openthread_state_changed_callback_register(&ot_state_chaged_cb);
     //set_ot_data();
     LOG_INF("Starting OpenThread!");
     openthread_run();
 
-    /* Define a buffer for our 10x10 pixel box */
-    /* NOTE: The buffer format must match the display's native format.
-     * This example assumes a 24-bit RGB888 format, which is common.
-     * If your display uses a different format (e.g., MONO01, RGB565),
-     * you will need to adjust the buffer size and how you set the pixel color.
-     * For MONO01, a 1-bit-per-pixel format, you would need a buffer of
-     * (BOX_WIDTH * BOX_HEIGHT) / 8 bytes.
-     */
-
-    uint8_t buf[200]; // 1 byte per pixel for MONO01
-    memset(buf, 0xAA, 200);
-    /*struct display_buffer_descriptor buf_desc = {
-        .buf_size = 5,
-        .width = BOX_WIDTH,
-        .height = 1,
-        .pitch = BOX_WIDTH, // Pitch is the width of the buffer 
-    };*/
-
-    /*display_blanking_on(display_dev);
-    for (uint16_t i = 0; i < 20; i++) {
-        memset(buf, i % 2 == 0 ? 0xAA : 0x44, 100);
-
-        write_one_line(i, buf, 100);
-    }
-    display_blanking_off(display_dev);*/
-    
-
-	/* Clear the entire screen to a default color (optional, but good practice) */
-    /* For this, we can just write a black buffer to the whole screen */
-    /*
-    display_blanking_on(display_dev);
-    // Calculate the center of the screen
-	uint16_t x_center = 0;
-    uint16_t y_center = 0;
-	for (uint8_t i = 0; i < 10; i++) {
-		x_center = (BOX_WIDTH * i);
-		y_center = i*5; //x_center;
-
-		LOG_INF("Drawing box at x:%d, y:%d", x_center, y_center);
-		// Write the buffer to the display
-		int ret = display_write(display_dev, x_center, y_center, &buf_desc, buf);
-
-		if (ret != 0) {
-			LOG_ERR("Failed to write to display: %d", ret);
-			return 0;
-		}
-
-		//k_msleep(250);
-	}
-	display_blanking_off(display_dev);*/
     
 
 	LOG_INF("Black box drawn successfully in the center of the display.");
@@ -457,6 +443,48 @@ int main(void)
 		LOG_ERR("Failed to init coap client, err %d", ret);
 	}
 
+    uint64_t device_id_eui = 0;
+    ret = hwinfo_get_device_id(&device_id_eui, 8);
+    if (ret < 0) {
+        LOG_ERR("failed to get device ID: %d", ret);
+    }
+
+    const struct device *npm2100_vbat = DEVICE_DT_GET(DT_NODELABEL(npm2100_vbat));
+    if (!device_is_ready(npm2100_vbat)) {
+        LOG_ERR("vbat device not ready.");
+        return -1;
+    }
+
+    struct sensor_value adc_delay = {0};
+    ret = sensor_attr_set(npm2100_vbat, SENSOR_CHAN_GAUGE_VOLTAGE, SENSOR_ATTR_NPM2100_ADC_DELAY, &adc_delay);
+    if (ret != 0) {
+        LOG_ERR("failed to set ADC delay for vbat: %d", ret);
+    }
+
+    int32_t vbat_mv = get_vbat_mV();
+
+    struct device_heartbeat_request req = {
+        .device_id = device_id_eui,
+        .current_firmware = APPVERSION,
+        .protocol_version = 1,
+        .vbat_mv = vbat_mv
+    };
+
+    uint8_t req_encoded[100];
+    size_t req_encoded_size = 0;
+    ret = encode_heartbeat_request(&req, req_encoded, sizeof(req_encoded), &req_encoded_size);
+    if (ret != 0) {
+        LOG_ERR("failed to encode heartbeat: %d", ret);
+    }
+
+    uint8_t res_encoded[100];
+    struct buffer_write_context bufwrite = {
+        .buf = res_encoded,
+        .max_size = 100,
+        .current_size = 0
+    };
+
+
     int tried_coap = 0;
     /* The application can now enter a low-power state or do other work */
     while (1) {
@@ -465,7 +493,7 @@ int main(void)
         if (role == OT_DEVICE_ROLE_CHILD || role == OT_DEVICE_ROLE_ROUTER || role == OT_DEVICE_ROLE_LEADER) {
 
             if (tried_coap == 0) {
-                LOG_INF("Trying CoAP!");
+                LOG_INF("Trying CoAP. vbat: %d! %llu", vbat_mv, device_id_eui);
                 struct sockaddr sa;
                 // calculated manually based on "br nat64prefix" from border router, so we don't need to enable ipv4 stack.
                 // fd7d:56af:ad45:2:0:0::/96 -> 10.102.40.113 -> fd7d:56af:ad45:2::a66:2871
@@ -476,9 +504,29 @@ int main(void)
                 addr6->sin6_port = htons(5683);
                 zsock_inet_pton(AF_INET6, "fd7d:56af:ad45:1:9fc6:1d58:d2db:2517", &addr6->sin6_addr);
 
-                //do_image_download(&sa/*, 0x00000001*/);
+                
+                // Do our heartbeat first.
+
+                coap_request_result_t  res = do_coap_request(&client, &sa, "hb", COAP_METHOD_PUT, req_encoded, req_encoded_size, buffer_coap_response, (void*) &bufwrite, 10);
+                LOG_INF("HB return code: %d", res);
+                if (res == 0) {
+                    LOG_INF("Got %zu bytes from HB", bufwrite.current_size);
+                    struct device_heartbeat_response hb_resp;
+                    res = decode_heartbeat_response(res_encoded, bufwrite.current_size, &hb_resp);
+                    if (res == 0) {
+                        LOG_INF("Decoded heartbeat. Desired firmware version: %08x, sleep interval %u", hb_resp.desired_firmware, hb_resp.checkin_interval);
+                        // We could upgrade firmware here if we wanted to.
+                    } else {
+                        LOG_INF("Failed to decode heartbeat: %d", res);
+                    }
+                }
+
+                // Then fetch an updated image
+                memset(&img_write, 0, sizeof(struct image_write_context));
+                heatshrink_decoder_reset(&img_write.hsd);
+                img_write.display_dev = display_dev;
                 display_blanking_on(display_dev);
-                coap_request_result_t  res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, NULL, 0, img_coap_response, (void*) &img_write, 90);
+                res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, NULL, 0, img_coap_response, (void*) &img_write, 90);
                 display_blanking_off(display_dev);
                 gpio_pin_set_dt(&epd_en, 0); // avoid a voltage spike when boost turns off by using pmos as a diode
 
