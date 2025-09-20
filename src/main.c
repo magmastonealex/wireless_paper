@@ -111,60 +111,24 @@ void set_ot_data() {
 
 static struct coap_client client = {0};
 
-/*
-static K_SEM_DEFINE(coap_done_sem, 0, 1);
-struct firmware_write_context {
-    uint32_t version;
-    uint32_t high_water_mark;
-    uint32_t has_failed;
-    uint32_t is_done;
-    struct flash_img_context write_ctx;
-};
-
-static void on_coap_response(int16_t result_code, size_t offset, const uint8_t *payload, size_t len,
-			     bool last_block, void *user_data)
-{
-    struct firmware_write_context * ctx = (struct firmware_write_context *) user_data;
-
-    LOG_INF("CoAP response, result_code=%d, offset=%u, len=%u is-last=%s", result_code, offset, len, last_block ? "yes" : "no");
-    if (result_code != COAP_RESPONSE_CODE_CONTENT) {
-		LOG_ERR("Error during CoAP download, result_code=%d", result_code);
-        ctx->has_failed = 1;
-        k_sem_give(&coap_done_sem);
-		return;
-    }
-    
-    if (ctx->has_failed == 1) {
-        LOG_ERR("Request has failed, but we have no way to signal this right now. Just early return.");
-        return;
-    }
-
-    // We need to receive the bytes in order - offset should always be == the high-water mark.
-    if (offset != ctx->high_water_mark) {
-        LOG_ERR("Invalid offset received (out of order or duplicate?)");
-        ctx->has_failed = 1;
-        k_sem_give(&coap_done_sem);
-        return;
-    }
-
-    ctx->high_water_mark = offset + len;
+static int fw_coap_response(const uint8_t *payload, size_t len, size_t offset, bool last_block, void *user_data) {
+    struct flash_img_context *write_ctx = (struct flash_img_context *) user_data;
 
     int err = 0;
-    if ((err = flash_img_buffered_write(&ctx->write_ctx, payload, len, last_block)) < 0) {
+    if ((err = flash_img_buffered_write(write_ctx, payload, len, last_block)) < 0) {
         LOG_ERR("Failed writing to flash: %d", err);
-        ctx->has_failed = 1;
-        k_sem_give(&coap_done_sem);
-        return;
+        return -1;
     } else {
-        LOG_INF("Write succeeded for this block, continuing");
+        LOG_INF("Write succeeded for this block (pos %zu), continuing", offset + len);
     }
-	
-    if (last_block) {
-        LOG_INF("CoAP download done, got %zu bytes ", flash_img_bytes_written(&ctx->write_ctx));
-        ctx->is_done = 1;
-        k_sem_give(&coap_done_sem);
-    }
+    return 0;
 }
+
+/*
+static K_SEM_DEFINE(coap_done_sem, 0, 1);
+
+
+
 
 static struct firmware_write_context fw_write = {0};
 
@@ -178,10 +142,7 @@ static void do_firmware_download(struct sockaddr *sa, uint32_t version)
     snprintf(firmware_path, 19, "/fw/%08x", version);
 
     int err = 0;
-    if ((err = flash_img_init(&fw_write.write_ctx)) < 0) {
-        LOG_ERR("Failed to init flash image write: %d", err);
-        return;
-    }
+
 
     fw_write.version = version;
 
@@ -217,9 +178,11 @@ static void do_firmware_download(struct sockaddr *sa, uint32_t version)
     } else if (fw_write.is_done != 1) {
         LOG_ERR("Semaphore returned but write is not complete?");
     } else {
-        LOG_INF("Firmware download is complete, marking partitiion ready...");
-        boot_request_upgrade(0); // pending upgrade.
+        LOG_INF("Firmware download is complete, marking partitiion ready...");    
     }
+
+    
+
 
 	coap_client_cancel_requests(&client);
 
@@ -428,15 +391,6 @@ int main(void)
     gpio_pin_configure_dt(&green_led, GPIO_OUTPUT_ACTIVE);
     gpio_pin_set_dt(&green_led, 1);
 
-    // in the future, only do this when we've verified server connectivity or something similar.
-    if (!boot_is_img_confirmed()) {
-        if (boot_write_img_confirmed() != 0) {
-            LOG_ERR("Failed to mark image as confirmed!");
-        } else {
-            LOG_INF("Marked image as OK.");
-        }
-    }
-
     /* Get the display device */
     const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
     struct display_capabilities caps;
@@ -506,6 +460,9 @@ int main(void)
     };
 
 
+    // default to wake every 5 minutes if not otherwise commanded.
+    uint32_t sleep_for_seconds = 300;
+
     int tried_coap = 0;
     /* The application can now enter a low-power state or do other work */
     while (1) {
@@ -535,8 +492,41 @@ int main(void)
                     struct device_heartbeat_response hb_resp;
                     res = decode_heartbeat_response(res_encoded, bufwrite.current_size, &hb_resp);
                     if (res == 0) {
+                        if (!boot_is_img_confirmed()) {
+                            if (boot_write_img_confirmed() != 0) {
+                                LOG_ERR("Failed to mark image as confirmed!");
+                            } else {
+                                LOG_INF("Marked image as OK.");
+                            }
+                        }
+
                         LOG_INF("Decoded heartbeat. Desired firmware version: %08x, sleep interval %u", hb_resp.desired_firmware, hb_resp.checkin_interval);
-                        // We could upgrade firmware here if we wanted to.
+                        if (hb_resp.desired_firmware != APPVERSION) {
+                            LOG_WRN("Starting firmware upgrade: %08x -> %08x", APPVERSION, hb_resp.desired_firmware);
+
+                            struct flash_img_context write_ctx;
+                            if ((ret = flash_img_init(&write_ctx)) < 0) {
+                                LOG_ERR("Failed to init flash image write: %d", ret);
+                            }
+
+                            char firmware_path[30] = {0};
+
+                            snprintf(firmware_path, 29, "fw/%08x.bin", hb_resp.desired_firmware);
+
+                            res = do_coap_request(&client, &sa, firmware_path, COAP_METHOD_GET, req_encoded, req_encoded_size, fw_coap_response, (void*) &write_ctx, 120);
+
+                            if (res == 0) {
+                                LOG_INF("Firmware upgrade downloaded. Kicking off upgrade....");
+                                boot_request_upgrade(0);
+                                // by using the npm2100 reset here, we'll set a 10 second wdt
+                                // for zephyr to start up again, which should be plenty of time if the image is correct.
+                                mfd_npm2100_reset(npm2100_pmic);
+                            }
+                        } else {
+                            LOG_INF("Firmware up to date, no action.");
+                        }
+
+                        sleep_for_seconds = hb_resp.checkin_interval;
                     } else {
                         LOG_INF("Failed to decode heartbeat: %d", res);
                     }
@@ -555,9 +545,9 @@ int main(void)
 
                 tried_coap = 1;
 
-                LOG_INF("About to hibernate...");
-                k_msleep(5000);
-                //int hibres = mfd_npm2100_hibernate(npm2100_pmic, 60000, false);
+                LOG_INF("About to hibernate for %d seconds", sleep_for_seconds);
+                k_msleep(200);
+                int hibres = mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
                 //LOG_INF("hibres: %d", hibres);
             }
         } else {
