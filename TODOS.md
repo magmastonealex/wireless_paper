@@ -1,9 +1,5 @@
-- Try to enable the spi flash: mx25r64 in nrf50l_05_10_15_cpuapp_common.dtsi
-    - Set up littlefs and use that for settings, perhaps?
-- Set this up as a 2nd partition for mcuboot?
-- COAP client
-- COAP client -> load firmware to flash partition?
-    - Set up a private key (done!)
-    - https://docs.zephyrproject.org/latest/services/device_mgmt/dfu.html
-        - Write the image, then try to reboot into it, if we find we're still in the same image then explode?
-            - How do we do that?
+- Update firmware to give up and sleep after a few minutes of trying to connect to openthread.
+- Tidy up code.
+- Write some infrastructure to "genericize" displays - can we have a byte sequence for init, then write all the data, then a byte sequence for trigger refresh, then a byte sequence for shutdown?
+    -> Those sequences can come from example code for each display.
+  -> Byte sequence for partial display update to write a small portion in the corner for a "disconnected" icon?
