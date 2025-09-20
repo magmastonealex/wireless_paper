@@ -348,6 +348,31 @@ static int img_coap_response(const uint8_t *payload, size_t len, size_t offset, 
     return 0;
 }
 
+uint64_t get_deviceaddr_mac() {
+
+    uint64_t device_id_mac = 0;
+
+#ifndef USE_DEVADDR_AS_DEVICE_ID
+    int ret = hwinfo_get_device_id((uint8_t*)&device_id_mac, 8);
+    if (ret < 0) {
+        LOG_ERR("failed to get device ID: %d", ret);
+    }
+    // only use lower 32 bits for now. web UI and db don't like full 64 bit ints.
+    device_id_mac = device_id_mac & 0x00000000FFFFFFFF;
+#else
+    // believe it or not, this is nordic's suggested approach to read this without the BT stack.
+    // https://devzone.nordicsemi.com/f/nordic-q-a/102285/read-nrf_ficr--deviceaddr-in-zephyr
+    
+    uint32_t * addr_upper = (uint32_t*) 0x00FFC3A4;
+    uint16_t * addr_lower = (uint16_t*) 0x00FFC3A8;
+
+    device_id_mac |= ((uint64_t)(*addr_upper)) << 48 | ((uint64_t)addr_lower);
+
+#endif
+
+    return device_id_mac;
+}
+
 int32_t get_vbat_mV() {
     const struct device *npm2100_vbat = DEVICE_DT_GET(DT_NODELABEL(npm2100_vbat));
     if (!device_is_ready(npm2100_vbat)) {
@@ -443,12 +468,8 @@ int main(void)
 		LOG_ERR("Failed to init coap client, err %d", ret);
 	}
 
-    uint64_t device_id_eui = 0;
-    ret = hwinfo_get_device_id(&device_id_eui, 8);
-    if (ret < 0) {
-        LOG_ERR("failed to get device ID: %d", ret);
-    }
-
+    uint64_t device_id_mac = get_deviceaddr_mac();
+    
     const struct device *npm2100_vbat = DEVICE_DT_GET(DT_NODELABEL(npm2100_vbat));
     if (!device_is_ready(npm2100_vbat)) {
         LOG_ERR("vbat device not ready.");
@@ -464,7 +485,7 @@ int main(void)
     int32_t vbat_mv = get_vbat_mV();
 
     struct device_heartbeat_request req = {
-        .device_id = device_id_eui,
+        .device_id = device_id_mac, // Note: device_id realistically should be u32. 
         .current_firmware = APPVERSION,
         .protocol_version = 1,
         .vbat_mv = vbat_mv
@@ -493,7 +514,7 @@ int main(void)
         if (role == OT_DEVICE_ROLE_CHILD || role == OT_DEVICE_ROLE_ROUTER || role == OT_DEVICE_ROLE_LEADER) {
 
             if (tried_coap == 0) {
-                LOG_INF("Trying CoAP. vbat: %d! %llu", vbat_mv, device_id_eui);
+                LOG_INF("Trying CoAP. vbat: %d! %llu", vbat_mv, device_id_mac);
                 struct sockaddr sa;
                 // calculated manually based on "br nat64prefix" from border router, so we don't need to enable ipv4 stack.
                 // fd7d:56af:ad45:2:0:0::/96 -> 10.102.40.113 -> fd7d:56af:ad45:2::a66:2871

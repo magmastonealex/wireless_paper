@@ -481,10 +481,10 @@
                     }
                 },
                 formatFirmware(fwnumeric) {
-                    let major = fwnumeric & 0xFF000000;
-                    let minor = fwnumeric & 0x00FF0000;
-                    let patch = fwnumeric & 0x0000FF00;
-                    let tweak = fwnumeric & 0x000000FF;
+                    let major = (fwnumeric & 0xFF000000) >> 24;
+                    let minor = (fwnumeric & 0x00FF0000) >> 16;
+                    let patch = (fwnumeric & 0x0000FF00) >> 8;
+                    let tweak = (fwnumeric & 0x000000FF);
                     
                     return `${major}.${minor}.${patch}.${tweak}`;
                 },

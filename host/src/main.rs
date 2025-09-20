@@ -164,6 +164,8 @@ impl CoapHandler {
             }
         };
 
+        println!("Got heartbeat request: {:#?}", r);
+
         match self.business.handle_heartbeat(r).await {
             Ok(resp) => {
                 let mut buf = Vec::new(); // at some point consider sharing a buffer or something to avoid all these small allocs.
@@ -193,7 +195,7 @@ fn main() {
         // Create CoAP server
         let coap_server = Server::new_udp(coap_addr).unwrap();
         println!("CoAP server up on {}", coap_addr);
-        let coap_handler = CoapHandler {
+        let coap_handler = CoapHandler { 
             business: BusinessImpl {
                 db: shared_db.clone(),
             }
