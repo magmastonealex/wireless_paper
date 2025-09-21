@@ -108,7 +108,7 @@ impl BusinessImpl {
 
         // 4. Set the expected_heartbeat to 30 seconds + checkin_interval (if not already set above)
         if device_state.firmware_state != FirmwareState::STARTED {
-            device_state.expected_heartbeat = now + Duration::seconds(30 + device_state.checkin_interval as i64);
+            device_state.expected_heartbeat = now + Duration::seconds(600 + device_state.checkin_interval as i64);
         }
 
         // Save the updated device state

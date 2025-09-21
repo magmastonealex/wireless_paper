@@ -461,7 +461,9 @@ int main(void)
 
 
     // default to wake every 5 minutes if not otherwise commanded.
-    uint32_t sleep_for_seconds = 300;
+    uint32_t sleep_for_seconds = 600;
+
+    int connection_waits = 0;
 
     int tried_coap = 0;
     /* The application can now enter a low-power state or do other work */
@@ -552,6 +554,12 @@ int main(void)
             }
         } else {
             LOG_INF("Not connected - not attempting CoAP request.");
+            connection_waits++;
+            if (connection_waits > 60) {
+                LOG_INF("No connection after 1 minute. Sleeping for a while...");
+                k_msleep(200);
+                mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
+            }
         }
 
         gpio_pin_toggle_dt(&green_led);
