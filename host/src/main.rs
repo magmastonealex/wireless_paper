@@ -9,7 +9,8 @@ use anyhow::anyhow;
 use crate::{
     business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest},
     database::DBImpl,
-    rest_api::{create_router, AppState}
+    rest_api::{create_router, AppState},
+    image_fetcher::ImageFetcher
 };
 
 mod business;
@@ -17,27 +18,37 @@ mod types;
 mod database;
 mod schema;
 mod rest_api;
+mod image_fetcher;
 
 #[cfg(test)]
 mod mock_database;
 
-fn do_img() -> Result<Vec<u8>, anyhow::Error> {
-    let raw_img = fs::read("img.bin")?;
-    let cfg = match Config::new(11, 8) {
-        Ok(c) => c,
-        Err(reason) => {
-            return Err(anyhow!("failed to make config: {}", reason));
-        }
-    };
-    let mut outvec = vec![0u8; raw_img.len()*2];
-    let real_out = match heatshrink::encode(&raw_img, &mut outvec, &cfg) {
-        Ok(r) => r,
-        Err(e) => {
-            return Err(anyhow!("failed to encode: {:?}", e));
-        }
-    };
+async fn fetch_and_compress_image() -> Result<(), anyhow::Error> {
+    println!("Fetching image from: {}", IMAGE_URL);
+    let fetcher = ImageFetcher::new();
 
-    Ok(real_out.to_vec())
+    let raw_img = fetcher.fetch_and_convert(IMAGE_URL, IMAGE_WIDTH, IMAGE_HEIGHT).await
+        .map_err(|e| anyhow!("Failed to fetch and convert image: {}", e))?;
+
+    println!("Fetched and converted image: {} bytes", raw_img.len());
+
+    let cfg = Config::new(11, 8)
+        .map_err(|e| anyhow!("Failed to create heatshrink config: {}", e))?;
+
+    let mut outvec = vec![0u8; raw_img.len() * 2];
+    let compressed = heatshrink::encode(&raw_img, &mut outvec, &cfg)
+        .map_err(|e| anyhow!("Failed to compress image: {:?}", e))?;
+
+    fs::write(COMPRESSED_IMAGE_PATH, compressed)
+        .map_err(|e| anyhow!("Failed to write compressed image: {}", e))?;
+
+    println!("Compressed image saved to: {} ({} bytes)", COMPRESSED_IMAGE_PATH, compressed.len());
+    Ok(())
+}
+
+fn do_img() -> Result<Vec<u8>, anyhow::Error> {
+    let compressed_img = fs::read(COMPRESSED_IMAGE_PATH)?;
+    Ok(compressed_img)
 }
 
 struct CoapHandler {
@@ -45,6 +56,10 @@ struct CoapHandler {
 }
 
 const FW_DIRECTORY: &str = "fw/";
+const IMAGE_URL: &str = "http://127.0.0.1:10000/passive-displays/0?viewport=800x480&theme=Graphite%20E-ink%20Light&eink=2";
+const IMAGE_WIDTH: u32 = 800;
+const IMAGE_HEIGHT: u32 = 480;
+const COMPRESSED_IMAGE_PATH: &str = "img_compressed.bin";
 
 #[async_trait]
 impl RequestHandler for CoapHandler {
@@ -188,6 +203,24 @@ fn main() {
     let http_addr = "0.0.0.0:8080";
 
     Runtime::new().unwrap().block_on(async move {
+        // Fetch initial image
+        if let Err(e) = fetch_and_compress_image().await {
+            eprintln!("Failed to fetch initial image: {}", e);
+        }
+
+        // Start periodic image fetching task
+        tokio::spawn(async {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30 * 60)); // 30 minutes
+            interval.tick().await; // Skip first tick (we already fetched at startup)
+
+            loop {
+                interval.tick().await;
+                if let Err(e) = fetch_and_compress_image().await {
+                    eprintln!("Failed to fetch periodic image: {}", e);
+                }
+            }
+        });
+
         // Create shared database instance
         let db_conn_str = "postgres://epaper:epaper_password@127.0.0.1/epaper";
         let shared_db = Arc::new(DBImpl::new(db_conn_str).await.unwrap());
@@ -195,7 +228,7 @@ fn main() {
         // Create CoAP server
         let coap_server = Server::new_udp(coap_addr).unwrap();
         println!("CoAP server up on {}", coap_addr);
-        let coap_handler = CoapHandler { 
+        let coap_handler = CoapHandler {
             business: BusinessImpl {
                 db: shared_db.clone(),
             }
