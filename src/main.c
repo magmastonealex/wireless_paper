@@ -32,10 +32,15 @@
 
 #include "heatshrink/heatshrink_decoder.h"
 
-#include <zephyr/drivers/regulator.h>
-#include <zephyr/drivers/sensor.h>
+#if DT_NODE_EXISTS(DT_NODELABEL(npm2100_vbat))
+#include <zephyr/drivers/sensor/npm2100_vbat.h>
 #include <zephyr/dt-bindings/regulator/npm2100.h>
 #include <zephyr/drivers/mfd/npm2100.h>
+#endif
+
+#include <zephyr/drivers/regulator.h>
+#include <zephyr/drivers/sensor.h>
+
 
 #include <zcbor_common.h>
 #include <zcbor_encode.h>
@@ -44,7 +49,13 @@
 #include "cbor.h"
 
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/drivers/sensor/npm2100_vbat.h>
+
+// We want to disable some functionality on devkits (particularly OTA upgrades.)
+#ifdef CONFIG_BOARD_NRF54L15DK
+    #define IS_DEVKIT 1
+#else
+    #define IS_DEVKIT 0
+#endif
 
 
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
@@ -53,7 +64,7 @@ LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 #define BOX_WIDTH  40
 #define BOX_HEIGHT 40
 
-static const struct gpio_dt_spec epd_en = GPIO_DT_SPEC_GET(DT_ALIAS(epd_en), gpios);
+
 
 static void on_thread_state_changed(otChangedFlags flags, void *user_data)
 {
@@ -337,6 +348,7 @@ uint64_t get_deviceaddr_mac() {
 }
 
 int32_t get_vbat_mV() {
+#if DT_NODE_EXISTS(DT_NODELABEL(npm2100_vbat))
     const struct device *npm2100_vbat = DEVICE_DT_GET(DT_NODELABEL(npm2100_vbat));
     if (!device_is_ready(npm2100_vbat)) {
         LOG_ERR("vbat device not ready.");
@@ -363,15 +375,28 @@ int32_t get_vbat_mV() {
     int32_t vbat_mv = (int32_t) sensor_value_to_milli(&vbat_res);
 
     return vbat_mv;
+#else
+    LOG_INF("Using fake vbat measurement.");
+    return 1900;
+#endif
 }
 
 static struct image_write_context img_write = {0};
 
 
-static const struct gpio_dt_spec green_led = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
-
-static const struct device *boost = DEVICE_DT_GET(DT_NODELABEL(npm2100_boost));
+#if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))
 static const struct device *npm2100_pmic = DEVICE_DT_GET(DT_NODELABEL(npm2100_pmic));
+#endif
+
+
+// Devkit doesn't have separate EN pin - rst is multiplexed by the breakout board.
+#if DT_HAS_ALIAS(epd_en) 
+static const struct gpio_dt_spec epd_en = GPIO_DT_SPEC_GET(DT_ALIAS(epd_en), gpios);
+#endif
+
+#if DT_HAS_ALIAS(heartbeat_led)
+static const struct gpio_dt_spec green_led = GPIO_DT_SPEC_GET(DT_ALIAS(heartbeat_led), gpios);
+#endif
 
 int main(void)
 {
@@ -384,12 +409,15 @@ int main(void)
     //    LOG_ERR("Failed to vset: %d", vset_res);
     //}
 
-
+#if DT_HAS_ALIAS(epd_en)
     gpio_pin_configure_dt(&epd_en, GPIO_OUTPUT_ACTIVE);
     gpio_pin_set_dt(&epd_en, 1);
+#endif
 
+#if DT_HAS_ALIAS(heartbeat_led)
     gpio_pin_configure_dt(&green_led, GPIO_OUTPUT_ACTIVE);
     gpio_pin_set_dt(&green_led, 1);
+#endif
 
     /* Get the display device */
     const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
@@ -423,18 +451,20 @@ int main(void)
 	}
 
     uint64_t device_id_mac = get_deviceaddr_mac();
-    
-    const struct device *npm2100_vbat = DEVICE_DT_GET(DT_NODELABEL(npm2100_vbat));
-    if (!device_is_ready(npm2100_vbat)) {
-        LOG_ERR("vbat device not ready.");
-        return -1;
-    }
 
-    struct sensor_value adc_delay = {0};
-    ret = sensor_attr_set(npm2100_vbat, SENSOR_CHAN_GAUGE_VOLTAGE, SENSOR_ATTR_NPM2100_ADC_DELAY, &adc_delay);
-    if (ret != 0) {
-        LOG_ERR("failed to set ADC delay for vbat: %d", ret);
-    }
+    #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_vbat))
+        const struct device *npm2100_vbat = DEVICE_DT_GET(DT_NODELABEL(npm2100_vbat));
+        if (!device_is_ready(npm2100_vbat)) {
+            LOG_ERR("vbat device not ready.");
+            return -1;
+        }
+
+        struct sensor_value adc_delay = {0};
+        ret = sensor_attr_set(npm2100_vbat, SENSOR_CHAN_GAUGE_VOLTAGE, SENSOR_ATTR_NPM2100_ADC_DELAY, &adc_delay);
+        if (ret != 0) {
+            LOG_ERR("failed to set ADC delay for vbat: %d", ret);
+        }
+    #endif
 
     int32_t vbat_mv = get_vbat_mV();
 
@@ -503,7 +533,8 @@ int main(void)
                         }
 
                         LOG_INF("Decoded heartbeat. Desired firmware version: %08x, sleep interval %u", hb_resp.desired_firmware, hb_resp.checkin_interval);
-                        if (hb_resp.desired_firmware != APPVERSION) {
+                        
+                        if (hb_resp.desired_firmware != APPVERSION && (IS_DEVKIT == 0)) {
                             LOG_WRN("Starting firmware upgrade: %08x -> %08x", APPVERSION, hb_resp.desired_firmware);
 
                             struct flash_img_context write_ctx;
@@ -522,10 +553,18 @@ int main(void)
                                 boot_request_upgrade(0);
                                 // by using the npm2100 reset here, we'll set a 10 second wdt
                                 // for zephyr to start up again, which should be plenty of time if the image is correct.
+                                #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))
                                 mfd_npm2100_reset(npm2100_pmic);
+                                #else
+                                LOG_INF("no PMIC - reset board manually");
+                                #endif
                             }
                         } else {
+                            #if IS_DEVKIT == 0
                             LOG_INF("Firmware up to date, no action.");
+                            #else
+                            LOG_INF("Is devkit, ignoring potential firmware upgrade.");
+                            #endif
                         }
 
                         sleep_for_seconds = hb_resp.checkin_interval;
@@ -541,7 +580,9 @@ int main(void)
                 display_blanking_on(display_dev);
                 res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, NULL, 0, img_coap_response, (void*) &img_write, 90);
                 display_blanking_off(display_dev);
-                gpio_pin_set_dt(&epd_en, 0); // avoid a voltage spike when boost turns off by using pmos as a diode
+                #if DT_HAS_ALIAS(epd_en)
+                    gpio_pin_set_dt(&epd_en, 0); // avoid a voltage spike when boost turns off by using pmos as a diode
+                #endif
 
                 LOG_INF("return code: %d", res);
 
@@ -549,7 +590,12 @@ int main(void)
 
                 LOG_INF("About to hibernate for %d seconds", sleep_for_seconds);
                 k_msleep(200);
+                #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))
                 int hibres = mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
+                #else
+                LOG_INF("No PMIC - sleeping instead. You probably want to reset the board.");
+                k_sleep(K_SECONDS(sleep_for_seconds));
+                #endif
                 //LOG_INF("hibres: %d", hibres);
             }
         } else {
@@ -558,11 +604,19 @@ int main(void)
             if (connection_waits > 60) {
                 LOG_INF("No connection after 1 minute. Sleeping for a while...");
                 k_msleep(200);
+                #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))
                 mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
+                #else
+                LOG_INF("No PMIC - sleeping manually.");
+                k_sleep(K_SECONDS(sleep_for_seconds));
+                connection_waits = 0;
+                #endif
             }
         }
 
+    #if DT_HAS_ALIAS(heartbeat_led)
         gpio_pin_toggle_dt(&green_led);
+    #endif
 		
         k_msleep(1000);
     }

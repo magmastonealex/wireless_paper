@@ -19,6 +19,7 @@
 
     aliases {
       epd-en = &epd_en;
+      heartbeat-led = &led0;
     };
 
     mipi_dbi {
