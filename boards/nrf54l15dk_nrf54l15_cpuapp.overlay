@@ -15,7 +15,7 @@
     #size-cells = <0>;
     eink: uc8719@0 {
       compatible = "ultrachip,uc8179";
-      busy-gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
+      busy-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
       //duplex = <2048>; // half duplex.
       reg = <0x0>;
       mipi-max-frequency = <1000000>;
@@ -71,6 +71,20 @@
 
     };
   };
+};
+
+/delete-node/ &lfxo;
+
+&grtc {
+      /delete-property/ clocks;
+      /delete-property/ clock-names;
+      clocks = <&pclk>;
+      clock-names = "hfclock";
+
+      owned-channels = <0 1 2 3 4 5 6 7 8 9 10 11>;
+	/* Channels 7-11 reserved for Zero Latency IRQs, 3-4 for FLPR */
+	child-owned-channels = <3 4 7 8 9 10 11>;
+	status = "okay";
 };
 
 &pinctrl {
