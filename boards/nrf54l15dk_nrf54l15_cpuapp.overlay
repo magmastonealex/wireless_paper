@@ -15,7 +15,7 @@
     #size-cells = <0>;
     eink: uc8719@0 {
       compatible = "ultrachip,uc8179";
-      busy-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+      busy-gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
       //duplex = <2048>; // half duplex.
       reg = <0x0>;
       mipi-max-frequency = <1000000>;
