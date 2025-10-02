@@ -1,0 +1,21 @@
+menuconfig GENERIC_EPAPER
+	bool "E-Paper Driver (generic)"
+    depends on DT_HAS_AR_GENERIC_EPAPER_ENABLED
+    select SPI
+    select GPIO
+	help
+	  Enable support for generic 24-pin E-Ink displays
+
+if GENERIC_EPAPER
+
+config GENERIC_EPAPER_INIT_PRIORITY
+	int "epaper device drivers init priority"
+	default 90
+	help
+	  epaper device drivers init priority.
+
+module = GENERIC_EPAPER
+module-str = generic_epaper
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # BLINK

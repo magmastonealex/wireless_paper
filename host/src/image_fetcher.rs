@@ -78,7 +78,7 @@ impl ImageFetcher {
                 let pixel_idx = (row * width + col) as usize;
                 let pixel_value = pixels[pixel_idx];
 
-                let bit_value = if pixel_value > 127 { 1 } else { 0 };
+                let bit_value = if pixel_value > 127 { 0 } else { 1 };
 
                 let bit_position = 7 - (col % 8);
                 byte |= bit_value << bit_position;

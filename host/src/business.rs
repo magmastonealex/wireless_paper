@@ -18,6 +18,13 @@ pub struct DeviceHeartbeatRequest {
     pub protocol_version: u8 // The version of the protocol this device supports. This may be used to determine how to shape the response so the device can understand it. For now, this should always be 1.
 }
 
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+pub struct DeviceImageRequest {
+    pub device_id: u64,
+    pub data_size: u32, 
+    pub epd_typ: u8,
+}
+
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct DeviceHeartbeatResponse {
     pub desired_firmware: u32, // The server will respond with the 

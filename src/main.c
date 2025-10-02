@@ -41,7 +41,6 @@
 #include <zephyr/drivers/regulator.h>
 #include <zephyr/drivers/sensor.h>
 
-
 #include <zcbor_common.h>
 #include <zcbor_encode.h>
 
@@ -49,6 +48,8 @@
 #include "cbor.h"
 
 #include <zephyr/drivers/sensor.h>
+
+#include <drivers/generic_epaper.h>
 
 // We want to disable some functionality on devkits (particularly OTA upgrades.)
 #ifdef CONFIG_BOARD_NRF54L15DK
@@ -63,8 +64,6 @@ LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 /* Define the size of the box */
 #define BOX_WIDTH  40
 #define BOX_HEIGHT 40
-
-
 
 static void on_thread_state_changed(otChangedFlags flags, void *user_data)
 {
@@ -99,10 +98,10 @@ static void on_thread_state_changed(otChangedFlags flags, void *user_data)
 static struct openthread_state_changed_callback ot_state_chaged_cb = {
 	.otCallback = on_thread_state_changed};
 
-static uint8_t tlvData[111] = {
-    0x0e, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x13, 0x4a, 0x03, 0x00, 0x00, 0x14, 0x35, 0x06, 0x00, 0x04, 0x00, 0x1f, 0xff, 0xe0, 0x02, 0x08, 0xf3, 0x8d, 0x7d, 0xff, 0xdb, 0x71, 0xbc, 0x4f, 0x07, 0x08, 0xfd, 0xed, 0x56, 0xea, 0xb7, 0xec, 0xb3, 0xae, 0x05, 0x10, 0xde, 0x02, 0xa0, 0xf2, 0x46, 0x27, 0xd7, 0x88, 0xdc, 0x91, 0xe0, 0x82, 0x02, 0xd9, 0x70, 0x67, 0x03, 0x0f, 0x4f, 0x70, 0x65, 0x6e, 0x54, 0x68, 0x72, 0x65, 0x61, 0x64, 0x2d, 0x39, 0x33, 0x63, 0x31, 0x01, 0x02, 0x93, 0xc1, 0x04, 0x10, 0x37, 0x89, 0xf9, 0x85, 0xb8, 0x57, 0x8a, 0x89, 0xbe, 0x72, 0xd7, 0x6d, 0x66, 0xbb, 0x3e, 0x82, 0x0c, 0x04, 0x02, 0xa0, 0xf7, 0xf8
-};
-
+//static uint8_t tlvData[111] = {
+//    0x0e, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x13, 0x4a, 0x03, 0x00, 0x00, 0x14, 0x35, 0x06, 0x00, 0x04, 0x00, 0x1f, 0xff, 0xe0, 0x02, 0x08, 0xf3, 0x8d, 0x7d, 0xff, 0xdb, 0x71, 0xbc, 0x4f, 0x07, 0x08, 0xfd, 0xed, 0x56, 0xea, 0xb7, 0xec, 0xb3, 0xae, 0x05, 0x10, 0xde, 0x02, 0xa0, 0xf2, 0x46, 0x27, 0xd7, 0x88, 0xdc, 0x91, 0xe0, 0x82, 0x02, 0xd9, 0x70, 0x67, 0x03, 0x0f, 0x4f, 0x70, 0x65, 0x6e, 0x54, 0x68, 0x72, 0x65, 0x61, 0x64, 0x2d, 0x39, 0x33, 0x63, 0x31, 0x01, 0x02, 0x93, 0xc1, 0x04, 0x10, 0x37, 0x89, 0xf9, 0x85, 0xb8, 0x57, 0x8a, 0x89, 0xbe, 0x72, 0xd7, 0x6d, 0x66, 0xbb, 0x3e, 0x82, 0x0c, 0x04, 0x02, 0xa0, 0xf7, 0xf8
+//};
+/*
 void set_ot_data() {
     otOperationalDatasetTlvs tlvs;
 
@@ -116,9 +115,7 @@ void set_ot_data() {
     else {
         LOG_INF("Set active dataset.");
     }
-}
-
-
+}*/
 
 static struct coap_client client = {0};
 
@@ -134,73 +131,6 @@ static int fw_coap_response(const uint8_t *payload, size_t len, size_t offset, b
     }
     return 0;
 }
-
-/*
-static K_SEM_DEFINE(coap_done_sem, 0, 1);
-
-
-
-
-static struct firmware_write_context fw_write = {0};
-
-// Download firmware from a given server using a CoAP request to /fw/hex_version
-static void do_firmware_download(struct sockaddr *sa, uint32_t version)
-{
-	int ret;
-	int sockfd;
-    char firmware_path[20] = {0};
-
-    snprintf(firmware_path, 19, "/fw/%08x", version);
-
-    int err = 0;
-
-
-    fw_write.version = version;
-
-	struct coap_client_request request = {.method = COAP_METHOD_GET,
-					      .confirmable = true,
-					      .path = firmware_path,
-					      .payload = NULL,
-					      .len = 0,
-					      .cb = on_coap_response,
-					      .options = NULL,
-					      .num_options = 0,
-					      .user_data = (void*) &fw_write};
-
-	LOG_INF("Starting CoAP download using %s", (AF_INET == sa->sa_family) ? "IPv4" : "IPv6");
-
-	sockfd = zsock_socket(sa->sa_family, SOCK_DGRAM, 0);
-	if (sockfd < 0) {
-		LOG_ERR("Failed to create socket, err %d", errno);
-		return;
-	}
-
-	ret = coap_client_req(&client, sockfd, sa, &request, NULL);
-	if (ret) {
-		LOG_ERR("Failed to send CoAP request, err %d", ret);
-		return;
-	}
-
-	// Wait for CoAP request to complete - we should probably put an upper bound on this and cancel requests afterwards? Does that work the way we think it should? 
-	k_sem_take(&coap_done_sem, K_FOREVER);
-
-    if (fw_write.has_failed != 0) {
-        LOG_ERR("Firmware write has failed.");
-    } else if (fw_write.is_done != 1) {
-        LOG_ERR("Semaphore returned but write is not complete?");
-    } else {
-        LOG_INF("Firmware download is complete, marking partitiion ready...");    
-    }
-
-    
-
-
-	coap_client_cancel_requests(&client);
-
-	zsock_close(sockfd);
-}
-
-*/
 
 #define DISPLAY_WIDTH 800
 #define DISPLAY_HEIGHT 480
@@ -226,29 +156,12 @@ static int buffer_coap_response(const uint8_t *payload, size_t len, size_t offse
 }
 
 struct image_write_context {
-    struct device *display_dev;
+    struct device *eink_dev;
+    size_t max_data;
     size_t total_produced;
     
-    uint16_t y_index;
-
-    uint8_t num_bytes_in_buf;
-    uint8_t buf[100];
     heatshrink_decoder hsd;
 };
-
-static void write_one_line(struct device *display_dev, uint16_t y, uint8_t *buf, uint16_t num_pix) {
-    struct display_buffer_descriptor buf_desc = {
-        .buf_size = num_pix,
-        .width = num_pix*8,
-        .height = 1,
-        .pitch = num_pix*8, /* Pitch is the width of the buffer */
-    };
-    int ret = display_write(display_dev, 0, y, &buf_desc, buf);
-
-    if (ret != 0) {
-        LOG_ERR("Failed to write to display: %d", ret);
-    }
-}
 
 static int img_coap_response(const uint8_t *payload, size_t len, size_t offset, bool last_block, void *user_data)
 {
@@ -258,33 +171,34 @@ static int img_coap_response(const uint8_t *payload, size_t len, size_t offset, 
     HSD_poll_res pres;
     HSD_finish_res fres;
 
+    uint8_t temp_buffer[100];
+
     while (payload_pos < len) {
         size_t size_in_payload = len - payload_pos;
         size_t actually_read = 0;
         sres = heatshrink_decoder_sink(&ctx->hsd, payload + payload_pos, size_in_payload, &actually_read);
         payload_pos+= actually_read;
-
-
         do {
-            size_t buffer_size_left = 100 - ctx->num_bytes_in_buf;
             size_t did_poll = 0;
-            pres = heatshrink_decoder_poll(&ctx->hsd, ctx->buf + ctx->num_bytes_in_buf, buffer_size_left, &did_poll);
+            pres = heatshrink_decoder_poll(&ctx->hsd, temp_buffer, sizeof(temp_buffer), &did_poll);
             if (pres < 0) { 
                 LOG_ERR("pres1 failed: %d", pres);
                 return -1;
             }
             //LOG_INF("Polled for %zu bytes", did_poll);
-            ctx->num_bytes_in_buf += did_poll;
             ctx->total_produced += did_poll;
-
-            if (ctx->num_bytes_in_buf == 100) {
-                //LOG_INF("Writing line to display...");
-                //memset(ctx->buf, 0xAA, 100);
-                write_one_line(ctx->display_dev, ctx->y_index, ctx->buf, 100);
-                ctx->y_index++;
-                ctx->num_bytes_in_buf = 0;
+            if (ctx->total_produced > ctx->max_data) {
+                LOG_ERR("would overrun: %zu received", ctx->total_produced);
+                return -1;
             }
 
+            if (did_poll > 0) {
+                int epd_res = epd_continue_write_data(ctx->eink_dev, temp_buffer, did_poll);
+                if (epd_res < 0) {
+                    LOG_ERR("Failed write to display: %d", epd_res);
+                    return -1;
+                }
+            }
         } while (pres == HSDR_POLL_MORE);
     }
 
@@ -295,23 +209,24 @@ static int img_coap_response(const uint8_t *payload, size_t len, size_t offset, 
         if (fres == HSDR_FINISH_MORE) {
             LOG_INF("Got bytes after finish...");
             do {
-                size_t buffer_size_left = 100 - ctx->num_bytes_in_buf;
                 size_t did_poll = 0;
-                pres = heatshrink_decoder_poll(&ctx->hsd, ctx->buf + ctx->num_bytes_in_buf, buffer_size_left, &did_poll);
+                pres = heatshrink_decoder_poll(&ctx->hsd, temp_buffer, sizeof(temp_buffer), &did_poll);
                 if (pres < 0) { 
                     LOG_ERR("pres failed: %d", pres);
                     return -1;
                 }
-                //LOG_INF("Polled for %zu bytes", did_poll);
-                ctx->num_bytes_in_buf += did_poll;
+                LOG_INF("finish polled for %zu bytes", did_poll);
                 ctx->total_produced += did_poll;
-
-                if (ctx->num_bytes_in_buf == 100) {
-                    //LOG_INF("Writing line to display...");
-                    //memset(ctx->buf, 0xAA, 100);
-                    write_one_line(ctx->display_dev, ctx->y_index, ctx->buf, 100);
-                    ctx->y_index++;
-                    ctx->num_bytes_in_buf = 0;
+                if (ctx->total_produced > ctx->max_data) {
+                    LOG_ERR("would overrun: %zu received", ctx->total_produced);
+                    return -1;
+                }
+                if (did_poll > 0) {
+                    int epd_res = epd_continue_write_data(ctx->eink_dev, temp_buffer, did_poll);
+                    if (epd_res < 0) {
+                        LOG_ERR("Failed write to display: %d", epd_res);
+                        return -1;
+                    }
                 }
             } while (pres == HSDR_POLL_MORE);
         } else {
@@ -390,10 +305,6 @@ static const struct device *npm2100_pmic = DEVICE_DT_GET(DT_NODELABEL(npm2100_pm
 
 
 // Devkit doesn't have separate EN pin - rst is multiplexed by the breakout board.
-#if DT_HAS_ALIAS(epd_en) 
-static const struct gpio_dt_spec epd_en = GPIO_DT_SPEC_GET(DT_ALIAS(epd_en), gpios);
-#endif
-
 #if DT_HAS_ALIAS(heartbeat_led)
 static const struct gpio_dt_spec green_led = GPIO_DT_SPEC_GET(DT_ALIAS(heartbeat_led), gpios);
 #endif
@@ -409,41 +320,43 @@ int main(void)
     //    LOG_ERR("Failed to vset: %d", vset_res);
     //}
 
-#if DT_HAS_ALIAS(epd_en)
-    gpio_pin_configure_dt(&epd_en, GPIO_OUTPUT_ACTIVE);
-    gpio_pin_set_dt(&epd_en, 1);
-#endif
-
 #if DT_HAS_ALIAS(heartbeat_led)
     gpio_pin_configure_dt(&green_led, GPIO_OUTPUT_ACTIVE);
     gpio_pin_set_dt(&green_led, 1);
 #endif
 
     /* Get the display device */
-    const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
-    struct display_capabilities caps;
-    uint32_t display_width, display_height;
+    const struct device *eink_dev = DEVICE_DT_GET(DT_NODELABEL(eink));
 
-    if (!device_is_ready(display_dev)) {
+    if (!device_is_ready(eink_dev)) {
         LOG_ERR("Display device not ready.");
         return 0;
     }
 
-    /* Get display capabilities */
-    display_get_capabilities(display_dev, &caps);
-    display_width = caps.x_resolution;
-    display_height = caps.y_resolution;
+    int ret;
+
+    ret = epd_set_type(eink_dev, EPD_TYPE_WS_75_V2B);
+    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEM075F52);
+    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEY029F51);
+    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEM035F51);
+    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEY029T71H);
+    if (ret < 0) {
+            LOG_ERR("failed to set type of display: %d", ret);
+            return 0;
+    }
+
+    struct epd_dimensions eink_dimensions;
+    ret = epd_get_dimensions(eink_dev, &eink_dimensions);
+    if (ret < 0) {
+        LOG_ERR("failed to get dimensions of display: %d", ret);
+        return 0;
+    }
 
     openthread_state_changed_callback_register(&ot_state_chaged_cb);
     //set_ot_data();
     LOG_INF("Starting OpenThread!");
     openthread_run();
 
-    
-
-	LOG_INF("Black box drawn successfully in the center of the display.");
-    
-  	int ret;
 
 	ret = coap_client_init(&client, NULL);
 	if (ret) {
@@ -576,18 +489,47 @@ int main(void)
                 // Then fetch an updated image
                 memset(&img_write, 0, sizeof(struct image_write_context));
                 heatshrink_decoder_reset(&img_write.hsd);
-                img_write.display_dev = display_dev;
-                display_blanking_on(display_dev);
-                res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, NULL, 0, img_coap_response, (void*) &img_write, 90);
-                display_blanking_off(display_dev);
-                #if DT_HAS_ALIAS(epd_en)
-                    gpio_pin_set_dt(&epd_en, 0); // avoid a voltage spike when boost turns off by using pmos as a diode
-                #endif
+                img_write.eink_dev = eink_dev;
+                img_write.max_data = eink_dimensions.expected_data_size;
 
+                struct image_request img_req = {
+                    .device_id = device_id_mac,
+                    .epd_type = (uint8_t) EPD_TYPE_WS_75_V2B,
+                    .expected_data_size = eink_dimensions.expected_data_size
+                };
+
+                ret = encode_image_request(&img_req, req_encoded, sizeof(req_encoded), &req_encoded_size);
+                if (ret != 0) {
+                    LOG_ERR("failed to encode heartbeat: %d", ret);
+                }
+
+                res = epd_power_on(eink_dev);
+                if (res < 0) {
+                        LOG_ERR("failed to power on display: %d", res);
+                        goto hibernate;        
+                }
+                res = epd_start_write_data(eink_dev, 0);
+                if (res < 0) {
+                        LOG_ERR("failed to init write: %d", res);
+                        goto hibernate;
+                }
+                
+                res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, req_encoded, req_encoded_size, img_coap_response, (void*) &img_write, 90);
                 LOG_INF("return code: %d", res);
+                res = epd_do_refresh(eink_dev);
+                if (res < 0) {
+                        LOG_ERR("failed to finish writing display: %d", res);
+                }
+                k_msleep(1000);
+                LOG_ERR("Done refresh?");
+                res = epd_power_off(eink_dev);
+                if (res < 0) {
+                        LOG_ERR("failed to power off display: %d", res);
+                }
 
                 tried_coap = 1;
 
+                hibernate:
                 LOG_INF("About to hibernate for %d seconds", sleep_for_seconds);
                 k_msleep(200);
                 #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))

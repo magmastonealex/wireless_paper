@@ -12,6 +12,48 @@
 // which is just terrible. At some point I should re-work this
 // to use integer keys or even better, capnproto/msgpack/raw-structs.
 
+int encode_image_request(const struct image_request *req, uint8_t *buffer, size_t buffer_size, size_t *encoded_size) {
+    bool success;
+
+    ZCBOR_STATE_E(states, 4, buffer, buffer_size, 1);
+
+    success = zcbor_map_start_encode(states, 3);
+    if (!success) {
+        return -ENOMEM;
+    }
+
+    /* Encode device_id */
+    success = zcbor_tstr_put_lit(states, "device_id") &&
+              zcbor_uint64_put(states, req->device_id);
+    if (!success) {
+        return -ENOMEM;
+    }
+
+    success = zcbor_tstr_put_lit(states, "data_size") &&
+              zcbor_uint32_put(states, req->expected_data_size);
+    if (!success) {
+        return -ENOMEM;
+    }
+
+    success = zcbor_tstr_put_lit(states, "epd_typ") &&
+              zcbor_uint32_put(states, req->epd_type);
+    if (!success) {
+        return -ENOMEM;
+    }
+
+    /* End the map */
+    success = zcbor_map_end_encode(states, 4);
+    if (!success) {
+        return -ENOMEM;
+    }
+
+    if (encoded_size) {
+        *encoded_size = states[0].payload - buffer;
+    }
+
+    return 0;
+}
+
 /*
  * Encode a DeviceHeartbeatRequest into CBOR format
  *

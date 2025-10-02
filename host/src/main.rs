@@ -7,10 +7,7 @@ use heatshrink::Config;
 use anyhow::anyhow;
 
 use crate::{
-    business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest},
-    database::DBImpl,
-    rest_api::{create_router, AppState},
-    image_fetcher::ImageFetcher
+    business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest, DeviceImageRequest}, database::DBImpl, image_fetcher::ImageFetcher, rest_api::{create_router, AppState}
 };
 
 mod business;
@@ -46,10 +43,6 @@ async fn fetch_and_compress_image() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn do_img() -> Result<Vec<u8>, anyhow::Error> {
-    let compressed_img = fs::read(COMPRESSED_IMAGE_PATH)?;
-    Ok(compressed_img)
-}
 
 struct CoapHandler {
     business: BusinessImpl
@@ -118,11 +111,21 @@ impl RequestHandler for CoapHandler {
                         }
                     }
                 } else if path == "img" {
-                    let now = time::SystemTime::now();
-                    let r = do_img().unwrap(); //fs::read("comp.bin").unwrap();
-                    let took = now.elapsed().unwrap();
-                    println!("cpress to {} bytes in {} ms", r.len(), took.as_millis());
-                    message.message.payload = r;
+                    let resp = self.handle_image_request(request.message.payload.clone()).await;
+                    match resp {
+                        Ok(body) => {
+                            println!("Responding OK with {} bytes", body.len());
+                            message.message.payload = body;
+                        },
+                        Err(BusinessError::BadRequest(e)) => {
+                            println!("Bad request: {:?} ", e);
+                            message.set_status(ResponseType::BadRequest);
+                        },
+                        Err(BusinessError::InternalError(e)) => {
+                            println!("Internal Error: {:?} ", e);
+                            message.set_status(ResponseType::InternalServerError);
+                        }
+                    }
                 } else {
                     message.set_status(ResponseType::NotFound);
                 }
@@ -137,6 +140,20 @@ impl RequestHandler for CoapHandler {
 }
 
 impl CoapHandler {
+    async fn handle_image_request(&self, req: Vec<u8>) -> Result<Vec<u8>, BusinessError> {
+        let r: DeviceImageRequest = match ciborium::from_reader(&req[..]) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("No req, or decoding failed: {:?}", e);
+                return Err(BusinessError::BadRequest(anyhow!("decoding failed: {:?}", e)))
+            }
+        };
+
+        println!("Got request: {:#?}", r);
+
+        let compressed_img = fs::read(COMPRESSED_IMAGE_PATH).map_err(|e| BusinessError::InternalError(e.into()))?;
+        Ok(compressed_img)
+    }
 
     async fn handle_firmware_request(&self, urlpath: &str) -> Result<Vec<u8>, BusinessError> {
         let binpath = match urlpath.split_once("fw/") {

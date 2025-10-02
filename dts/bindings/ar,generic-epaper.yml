@@ -1,0 +1,31 @@
+include: [spi-device.yaml]
+
+description: |
+  Generic e-paper controller for a variety of 24-pin FPC displays.
+  The goal of this driver is for the exact display to be runtime configurable, so the same firmware can be used on multiple devices differing primarily by their display.
+compatible: "ar,generic-epaper"
+
+properties:
+  dc-gpios:
+    type: phandle-array
+    required: true
+    description: |
+      Data/command gpio pin. Required when using 4 wire SPI mode (Mode C1).
+      Set to low when sending a command, or high when sending data.
+
+  reset-gpios:
+    type: phandle-array
+    required: true
+    description: |
+      Reset GPIO pin. Set high to reset the display
+
+  busy-gpios:
+    type: phandle-array
+    required: true
+    description: |
+      Busy GPIO pin. Input from the display to indicate if it is ready for additional commands.
+
+  en-gpios:
+    type: phandle-array
+    description: |
+      Enable power to the display. If unset, display will be left in reset when not in use.
