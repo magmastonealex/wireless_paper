@@ -398,7 +398,7 @@ static int epd_write_helper(const struct device *dev, bool cmd_present, uint8_t 
 	}
 
 	if (data_len > 0) {
-        LOG_ERR("Sending data len %zu", data_len);
+        //LOG_DBG("Sending data len %zu", data_len);
         for (size_t i = 0; i < data_len; i++) {
             buffer.buf = (void*)(data_buf + i);
             buffer.len = 1;

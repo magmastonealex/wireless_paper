@@ -599,7 +599,7 @@ int main(void)
                 LOG_INF("About to hibernate for %d seconds", sleep_for_seconds);
                 k_msleep(200);
                 #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))
-                //int hibres = mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
+                int hibres = mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
                 k_sleep(K_SECONDS(sleep_for_seconds));
                 #else
                 LOG_INF("No PMIC - sleeping instead. You probably want to reset the board.");
@@ -614,6 +614,7 @@ int main(void)
                 k_msleep(200);
                 #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))
                 mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
+                k_sleep(K_SECONDS(sleep_for_seconds));
                 #else
                 LOG_INF("No PMIC - sleeping manually.");
                 k_sleep(K_SECONDS(sleep_for_seconds));
