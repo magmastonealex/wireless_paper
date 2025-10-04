@@ -46,8 +46,10 @@
 
 #include "coap_request.h"
 #include "cbor.h"
+#include "wrapped_settings.h"
 
 #include <zephyr/drivers/sensor.h>
+#include <zephyr/shell/shell.h>
 
 #include <drivers/generic_epaper.h>
 
@@ -58,8 +60,72 @@
     #define IS_DEVKIT 0
 #endif
 
-
 LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
+
+static uint8_t tlvData[111] = {
+    0x0e, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x13, 0x4a, 0x03, 0x00, 0x00, 0x14, 0x35, 0x06, 0x00, 0x04, 0x00, 0x1f, 0xff, 0xe0, 0x02, 0x08, 0xf3, 0x8d, 0x7d, 0xff, 0xdb, 0x71, 0xbc, 0x4f, 0x07, 0x08, 0xfd, 0xed, 0x56, 0xea, 0xb7, 0xec, 0xb3, 0xae, 0x05, 0x10, 0xde, 0x02, 0xa0, 0xf2, 0x46, 0x27, 0xd7, 0x88, 0xdc, 0x91, 0xe0, 0x82, 0x02, 0xd9, 0x70, 0x67, 0x03, 0x0f, 0x4f, 0x70, 0x65, 0x6e, 0x54, 0x68, 0x72, 0x65, 0x61, 0x64, 0x2d, 0x39, 0x33, 0x63, 0x31, 0x01, 0x02, 0x93, 0xc1, 0x04, 0x10, 0x37, 0x89, 0xf9, 0x85, 0xb8, 0x57, 0x8a, 0x89, 0xbe, 0x72, 0xd7, 0x6d, 0x66, 0xbb, 0x3e, 0x82, 0x0c, 0x04, 0x02, 0xa0, 0xf7, 0xf8
+};
+void set_ot_data() {
+    otOperationalDatasetTlvs tlvs;
+
+    memcpy(tlvs.mTlvs, tlvData, 111);
+    tlvs.mLength = 111;
+    
+    otError err = otDatasetSetActiveTlvs(openthread_get_default_instance(), &tlvs);
+    if (err != OT_ERROR_NONE) {
+        LOG_ERR("failed to set active TLVs: %d", err);
+    }
+    else {
+        LOG_INF("Set active dataset.");
+    }
+}
+
+// technically you can just use settings_write for this, but something is broken when using rtt
+// and you can't type more than a couple characters into the shell.
+static int epd_cfg_callback(const struct shell* shell, size_t argc, char** argv) {
+    if (argc < 2) {
+        shell_print(shell, "must specify subcmd g or s");
+        return 1;
+    }
+    int ret = 0;
+    if (argv[1][0] == 'g') {
+        uint8_t expected_type = 0;
+        ret = wrapped_settings_get_raw("ep_type", &expected_type, 1, NULL);
+        if (ret < 0) {
+            shell_print(shell, "failed to read ep type: %d", ret);
+        } else {
+            shell_print(shell, "got ep type: %u", expected_type);
+        }
+    }
+    else if (argv[1][0] == 's') {
+        if (argc < 3) {
+            shell_print(shell, "must specify epd type");
+            return 1;
+        }
+        uint8_t argument = argv[2][0];
+        if (argument > 57 || argument < 48) {
+            shell_print(shell, "arg must be 0-9 %u", argument);
+            return 1;
+        }
+
+        uint8_t expected_type = argument - 48;
+        ret = wrapped_settings_set_raw("ep_type", &expected_type, 1);
+        if (ret < 0) {
+            shell_print(shell, "failed to write ep type: %d", ret);
+        } else {
+            shell_print(shell, "wrote ep type: %u", expected_type);
+        }
+    } else if (argv[1][0] == 'o') {
+        set_ot_data();
+    } else {
+        shell_print(shell, "must specify subcmd g or s was something else %c %zu", argv[1][0], argc);
+        return 1;
+    }
+    return 0;
+}
+
+SHELL_CMD_REGISTER(epc, NULL, "epaper config settings", epd_cfg_callback);
+
 
 /* Define the size of the box */
 #define BOX_WIDTH  40
@@ -98,24 +164,7 @@ static void on_thread_state_changed(otChangedFlags flags, void *user_data)
 static struct openthread_state_changed_callback ot_state_chaged_cb = {
 	.otCallback = on_thread_state_changed};
 
-//static uint8_t tlvData[111] = {
-//    0x0e, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x13, 0x4a, 0x03, 0x00, 0x00, 0x14, 0x35, 0x06, 0x00, 0x04, 0x00, 0x1f, 0xff, 0xe0, 0x02, 0x08, 0xf3, 0x8d, 0x7d, 0xff, 0xdb, 0x71, 0xbc, 0x4f, 0x07, 0x08, 0xfd, 0xed, 0x56, 0xea, 0xb7, 0xec, 0xb3, 0xae, 0x05, 0x10, 0xde, 0x02, 0xa0, 0xf2, 0x46, 0x27, 0xd7, 0x88, 0xdc, 0x91, 0xe0, 0x82, 0x02, 0xd9, 0x70, 0x67, 0x03, 0x0f, 0x4f, 0x70, 0x65, 0x6e, 0x54, 0x68, 0x72, 0x65, 0x61, 0x64, 0x2d, 0x39, 0x33, 0x63, 0x31, 0x01, 0x02, 0x93, 0xc1, 0x04, 0x10, 0x37, 0x89, 0xf9, 0x85, 0xb8, 0x57, 0x8a, 0x89, 0xbe, 0x72, 0xd7, 0x6d, 0x66, 0xbb, 0x3e, 0x82, 0x0c, 0x04, 0x02, 0xa0, 0xf7, 0xf8
-//};
-/*
-void set_ot_data() {
-    otOperationalDatasetTlvs tlvs;
 
-    memcpy(tlvs.mTlvs, tlvData, 111);
-    tlvs.mLength = 111;
-    
-    otError err = otDatasetSetActiveTlvs(openthread_get_default_instance(), &tlvs);
-    if (err != OT_ERROR_NONE) {
-        LOG_ERR("failed to set active TLVs: %d", err);
-    }
-    else {
-        LOG_INF("Set active dataset.");
-    }
-}*/
 
 static struct coap_client client = {0};
 
@@ -313,7 +362,6 @@ int main(void)
 {
     LOG_INF("Starting app version: %s", APP_VERSION_STRING);
     LOG_INF("Boot swap type: %d", mcuboot_swap_type());
-
     // Set 3v3 for regulator...
     //int vset_res = regulator_set_voltage(boost, 3300000, 3300000);
     //if (vset_res != 0) {
@@ -335,21 +383,35 @@ int main(void)
 
     int ret;
 
-    ret = epd_set_type(eink_dev, EPD_TYPE_WS_75_V2B);
-    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEM075F52);
-    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEY029F51);
-    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEM035F51);
-    //ret = epd_set_type(epd_instance, EPD_TYPE_GDEY029T71H);
+    ret = wrapped_settings_init();
+    if (ret < 0) {
+            LOG_ERR("failed to initialize settings...: %d", ret);
+            return 0;
+    }
+
+    // e-paper will not be written to if the type is invalid or we can't get dimensions.
+    // This prevents us from bricking a display by writing bad data to it.
+    uint8_t ep_disabled = 0;
+
+    uint8_t expected_type = 0;
+    ret = wrapped_settings_get_raw("ep_type", &expected_type, 1, NULL);
+    if (ret < 0) {
+            LOG_ERR("failed to read ep type setting, disabling epd: %d", ret);
+            ep_disabled = 1;
+    }
+    LOG_INF("Got epaper type: %u", expected_type);
+
+    ret = epd_set_type(eink_dev, (epd_type_t) expected_type);
     if (ret < 0) {
             LOG_ERR("failed to set type of display: %d", ret);
-            return 0;
+            ep_disabled = 1;
     }
 
     struct epd_dimensions eink_dimensions;
     ret = epd_get_dimensions(eink_dev, &eink_dimensions);
     if (ret < 0) {
         LOG_ERR("failed to get dimensions of display: %d", ret);
-        return 0;
+        ep_disabled = 1;
     }
 
     openthread_state_changed_callback_register(&ot_state_chaged_cb);
@@ -393,6 +455,7 @@ int main(void)
     ret = encode_heartbeat_request(&req, req_encoded, sizeof(req_encoded), &req_encoded_size);
     if (ret != 0) {
         LOG_ERR("failed to encode heartbeat: %d", ret);
+        req_encoded_size = 0;
     }
 
     uint8_t res_encoded[100];
@@ -401,7 +464,6 @@ int main(void)
         .max_size = 100,
         .current_size = 0
     };
-
 
     // default to wake every 5 minutes if not otherwise commanded.
     uint32_t sleep_for_seconds = 600;
@@ -486,45 +548,49 @@ int main(void)
                     }
                 }
 
-                // Then fetch an updated image
-                memset(&img_write, 0, sizeof(struct image_write_context));
-                heatshrink_decoder_reset(&img_write.hsd);
-                img_write.eink_dev = eink_dev;
-                img_write.max_data = eink_dimensions.expected_data_size;
+                if (ep_disabled == 0) {
+                    // Then fetch an updated image
+                    memset(&img_write, 0, sizeof(struct image_write_context));
+                    heatshrink_decoder_reset(&img_write.hsd);
+                    img_write.eink_dev = eink_dev;
+                    img_write.max_data = eink_dimensions.expected_data_size;
 
-                struct image_request img_req = {
-                    .device_id = device_id_mac,
-                    .epd_type = (uint8_t) EPD_TYPE_WS_75_V2B,
-                    .expected_data_size = eink_dimensions.expected_data_size
-                };
+                    struct image_request img_req = {
+                        .device_id = device_id_mac,
+                        .epd_type = (uint8_t) EPD_TYPE_WS_75_V2B,
+                        .expected_data_size = eink_dimensions.expected_data_size
+                    };
 
-                ret = encode_image_request(&img_req, req_encoded, sizeof(req_encoded), &req_encoded_size);
-                if (ret != 0) {
-                    LOG_ERR("failed to encode heartbeat: %d", ret);
-                }
+                    ret = encode_image_request(&img_req, req_encoded, sizeof(req_encoded), &req_encoded_size);
+                    if (ret != 0) {
+                        LOG_ERR("failed to encode heartbeat: %d", ret);
+                    }
 
-                res = epd_power_on(eink_dev);
-                if (res < 0) {
-                        LOG_ERR("failed to power on display: %d", res);
-                        goto hibernate;        
-                }
-                res = epd_start_write_data(eink_dev, 0);
-                if (res < 0) {
-                        LOG_ERR("failed to init write: %d", res);
-                        goto hibernate;
-                }
-                
-                res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, req_encoded, req_encoded_size, img_coap_response, (void*) &img_write, 90);
-                LOG_INF("return code: %d", res);
-                res = epd_do_refresh(eink_dev);
-                if (res < 0) {
-                        LOG_ERR("failed to finish writing display: %d", res);
-                }
-                k_msleep(1000);
-                LOG_ERR("Done refresh?");
-                res = epd_power_off(eink_dev);
-                if (res < 0) {
-                        LOG_ERR("failed to power off display: %d", res);
+                    res = epd_power_on(eink_dev);
+                    if (res < 0) {
+                            LOG_ERR("failed to power on display: %d", res);
+                            goto hibernate;        
+                    }
+                    res = epd_start_write_data(eink_dev, 0);
+                    if (res < 0) {
+                            LOG_ERR("failed to init write: %d", res);
+                            goto hibernate;
+                    }
+                    
+                    res = do_coap_request(&client, &sa, "img", COAP_METHOD_GET, req_encoded, req_encoded_size, img_coap_response, (void*) &img_write, 90);
+                    LOG_INF("return code: %d", res);
+                    res = epd_do_refresh(eink_dev);
+                    if (res < 0) {
+                            LOG_ERR("failed to finish writing display: %d", res);
+                    }
+                    k_msleep(1000);
+                    LOG_ERR("Done refresh?");
+                    res = epd_power_off(eink_dev);
+                    if (res < 0) {
+                            LOG_ERR("failed to power off display: %d", res);
+                    }
+                } else {
+                    LOG_ERR("epd disabled (bad settings?), did not attempt a write.");
                 }
 
                 tried_coap = 1;
@@ -533,7 +599,8 @@ int main(void)
                 LOG_INF("About to hibernate for %d seconds", sleep_for_seconds);
                 k_msleep(200);
                 #if DT_NODE_EXISTS(DT_NODELABEL(npm2100_pmic))
-                int hibres = mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
+                //int hibres = mfd_npm2100_hibernate(npm2100_pmic, sleep_for_seconds * 1000, false);
+                k_sleep(K_SECONDS(sleep_for_seconds));
                 #else
                 LOG_INF("No PMIC - sleeping instead. You probably want to reset the board.");
                 k_sleep(K_SECONDS(sleep_for_seconds));
@@ -541,7 +608,6 @@ int main(void)
                 //LOG_INF("hibres: %d", hibres);
             }
         } else {
-            LOG_INF("Not connected - not attempting CoAP request.");
             connection_waits++;
             if (connection_waits > 60) {
                 LOG_INF("No connection after 1 minute. Sleeping for a while...");

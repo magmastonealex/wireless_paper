@@ -41,12 +41,6 @@ int wrapped_settings_init(void)
     LOG_INF("Settings wrapper initialized");
     return 0;
 }
-
-int wrapped_settings_get_int(const char* key, int* val)
-{
-    return -ENOENT;
-}
-
 // borrowed idea from settings_shell for raw settings reads and writes.
 struct settings_read_callback_params {
     uint8_t *data;
@@ -116,15 +110,12 @@ int wrapped_settings_get_raw(const char* key, uint8_t *data, size_t max_size, si
         LOG_ERR("input array too small for result (actually %zd vs. %zu)", ctx.data_real_size, ctx.data_max_len);
         return -ENOMEM;
     }
-
-    *actual_size = (size_t)ctx.data_real_size;
+    if (actual_size != NULL) {
+        *actual_size = (size_t)ctx.data_real_size;
+    }
+    
     LOG_INF("Loaded %zu bytes from key '%s'", *actual_size, full_key);
     return 0;
-}
-
-int wrapped_settings_set_int(const char* key, int val)
-{
-    return -ENOENT;
 }
 
 int wrapped_settings_set_raw(const char* key, uint8_t *data, size_t size)

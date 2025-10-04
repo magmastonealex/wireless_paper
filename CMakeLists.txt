@@ -9,7 +9,7 @@ project(zapp)
 add_subdirectory(drivers)
 zephyr_include_directories(include)
 
-target_sources(app PRIVATE src/main.c src/cbor.c src/coap_request.c src/heatshrink/heatshrink_decoder.c)
+target_sources(app PRIVATE src/main.c src/cbor.c src/coap_request.c src/heatshrink/heatshrink_decoder.c src/wrapped_settings.c)
 target_link_libraries(app PRIVATE generic_epaper)
 
 
