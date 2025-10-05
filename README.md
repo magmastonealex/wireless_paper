@@ -1,6 +1,8 @@
 E-Paper Thingy
 ===
 
+![e-paper display with 7.5 inch display](.imgs/75_front.jpg)
+
 This repository contains source code for the Zephyr application which runs on the e-paper boards I designed.
 
 Additionally, a Rust-based "host" application is in the `host/` subdirectory which acts as a "server" for these displays, providing images to display, over-the-air upgrades, and a small dashboard where you can view status of the fleet of displays.
