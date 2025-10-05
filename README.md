@@ -1,7 +1,7 @@
 E-Paper Thingy
 ===
 
-![e-paper display with 7.5 inch display](.imgs/75_front.jpg)
+![e-paper display with 7.5 inch display](/.imgs/front_75.jpg)
 
 This repository contains source code for the Zephyr application which runs on the e-paper boards I designed.
 
