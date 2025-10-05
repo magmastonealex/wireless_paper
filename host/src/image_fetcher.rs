@@ -62,6 +62,7 @@ impl ImageFetcher {
             .map_err(|e| anyhow!("Failed to read image format: {}", e))?
             .decode()
             .map_err(|e| anyhow!("Failed to decode PNG: {}", e))?;
+        //img = img.rotate90();
 
         let (real_width, real_height) = img.dimensions();
         if width != real_width || real_height != height {
@@ -171,12 +172,12 @@ impl ImageFetcher {
         let (width, height) = display_type.get_display_dimensions();
         let pixfmt = display_type.get_pixel_format();
         let png_data = self.fetch_png(url).await?;
-
+        println!("Display: {:?}, {:?}, {:?}", width, height, pixfmt);
         match pixfmt {
-            PixelFormat::Kw2Bit => {
+            PixelFormat::Kw1Bit => {
                 self.png_to_1bit(&png_data, width, height)
             },
-            PixelFormat::Rykw4Bit => {
+            PixelFormat::Rykw2Bit => {
                 self.png_to_2bpp_wryk(&png_data, width, height)
             }
         }

@@ -59,15 +59,15 @@ pub enum DisplayType {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PixelFormat {
-    Rykw4Bit,
-    Kw2Bit,
+    Rykw2Bit,
+    Kw1Bit,
 }
 
 impl DisplayType {
     pub fn get_display_dimensions(&self) -> (u32, u32) {
         match self {
             DisplayType::EPD_TYPE_GDEY029T71H => (384, 168),  // 2.9" B/W
-            DisplayType::EPD_TYPE_GDEM035F51 => (384, 184),   // 3.5" 4-color
+            DisplayType::EPD_TYPE_GDEM035F51 => (184, 384),   // 3.5" 4-color
             DisplayType::EPD_TYPE_GDEY029F51 => (384, 168),   // 2.9" 4-color
             DisplayType::EPD_TYPE_GDEM075F52 => (800, 480),   // 7.5" 4-color
             DisplayType::EPD_TYPE_WS_75_V2B => (800, 480),    // 7.5" 2-color + red
@@ -75,11 +75,11 @@ impl DisplayType {
     }
     pub fn get_pixel_format(&self) -> PixelFormat {
         match self {
-            DisplayType::EPD_TYPE_GDEY029T71H => PixelFormat::Kw2Bit,  // 2.9" B/W
-            DisplayType::EPD_TYPE_GDEM035F51 => PixelFormat::Rykw4Bit,   // 3.5" 4-color
-            DisplayType::EPD_TYPE_GDEY029F51 => PixelFormat::Rykw4Bit,   // 2.9" 4-color
-            DisplayType::EPD_TYPE_GDEM075F52 => PixelFormat::Rykw4Bit,   // 7.5" 4-color
-            DisplayType::EPD_TYPE_WS_75_V2B => PixelFormat::Kw2Bit,    // 7.5" 2-color + red
+            DisplayType::EPD_TYPE_GDEY029T71H => PixelFormat::Kw1Bit,  // 2.9" B/W
+            DisplayType::EPD_TYPE_GDEM035F51 => PixelFormat::Rykw2Bit,   // 3.5" 4-color
+            DisplayType::EPD_TYPE_GDEY029F51 => PixelFormat::Rykw2Bit,   // 2.9" 4-color
+            DisplayType::EPD_TYPE_GDEM075F52 => PixelFormat::Rykw2Bit,   // 7.5" 4-color
+            DisplayType::EPD_TYPE_WS_75_V2B => PixelFormat::Kw1Bit,    // 7.5" 2-color + red
         }
     }
 }

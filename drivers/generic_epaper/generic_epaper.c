@@ -189,7 +189,7 @@ static const uint8_t GDEM035F51_power_down[] = {
 static const struct epd_metadata GDEM035F51_meta = {
     .height = 184,
     .width = 384,
-    .expected_data_size = 8064,
+    .expected_data_size = 17664,
 
     .init_command_list = GDEM035F51_init_full,
     .num_planes = 1,
