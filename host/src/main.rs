@@ -50,7 +50,7 @@ async fn fetch_and_compress_images_for_all_devices(db: Arc<dyn Database + Send +
         println!("Fetching image for device {} from: {}", device.device_id, image_url);
 
         // Fetch and convert image for this display type
-        let raw_img = match fetcher.fetch_and_convert_for_display(image_url, display_type).await {
+        let raw_img = match fetcher.fetch_and_convert_for_display(image_url, display_type, &device.rotation).await {
             Ok(img) => img,
             Err(e) => {
                 eprintln!("Failed to fetch image for device {}: {}", device.device_id, e);

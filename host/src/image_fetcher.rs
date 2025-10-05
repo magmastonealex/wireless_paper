@@ -2,7 +2,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Result};
 use reqwest::Client;
 use image::{GenericImageView, ImageReader};
-use crate::types::{DisplayType, PixelFormat};
+use crate::types::{DisplayType, PixelFormat, Rotation};
 
 pub struct ImageFetcher {
     client: Client,
@@ -56,13 +56,19 @@ impl ImageFetcher {
     }
 
     // 2 bit per pixel, white (01), black (00), yellow (10), red (11).
-    fn png_to_2bpp_wryk(&self, png_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>> {
+    fn png_to_2bpp_wryk(&self, png_data: &[u8], width: u32, height: u32, rotation: &Rotation) -> Result<Vec<u8>> {
         let img = ImageReader::new(std::io::Cursor::new(png_data))
             .with_guessed_format()
             .map_err(|e| anyhow!("Failed to read image format: {}", e))?
             .decode()
             .map_err(|e| anyhow!("Failed to decode PNG: {}", e))?;
-        //img = img.rotate90();
+
+        let img = match rotation {
+            Rotation::ROTATE_0 => img,
+            Rotation::ROTATE_90 => img.rotate90(),
+            Rotation::ROTATE_180 => img.rotate180(),
+            Rotation::ROTATE_270 => img.rotate270(),
+        };
 
         let (real_width, real_height) = img.dimensions();
         if width != real_width || real_height != height {
@@ -129,13 +135,19 @@ impl ImageFetcher {
         Ok(raw_data)
     }
 
-    fn png_to_1bit(&self, png_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>> {
+    fn png_to_1bit(&self, png_data: &[u8], width: u32, height: u32, rotation: &Rotation) -> Result<Vec<u8>> {
         let img = ImageReader::new(std::io::Cursor::new(png_data))
             .with_guessed_format()
             .map_err(|e| anyhow!("Failed to read image format: {}", e))?
             .decode()
             .map_err(|e| anyhow!("Failed to decode PNG: {}", e))?;
-
+        let img = match rotation {
+            Rotation::ROTATE_0 => img,
+            Rotation::ROTATE_90 => img.rotate90(),
+            Rotation::ROTATE_180 => img.rotate180(),
+            Rotation::ROTATE_270 => img.rotate270(),
+        };
+        
         let (real_width, real_height) = img.dimensions();
         if width != real_width || real_height != height {
             return Err(anyhow!("Image dimensions ({}x{}) do not match expected ({}x{})", real_width, real_height, width, height));
@@ -168,17 +180,17 @@ impl ImageFetcher {
         Ok(raw_data)
     }
 
-    pub async fn fetch_and_convert_for_display(&self, url: &str, display_type: &DisplayType) -> Result<Vec<u8>> {
+    pub async fn fetch_and_convert_for_display(&self, url: &str, display_type: &DisplayType, rotation: &Rotation) -> Result<Vec<u8>> {
         let (width, height) = display_type.get_display_dimensions();
         let pixfmt = display_type.get_pixel_format();
         let png_data = self.fetch_png(url).await?;
         println!("Display: {:?}, {:?}, {:?}", width, height, pixfmt);
         match pixfmt {
             PixelFormat::Kw1Bit => {
-                self.png_to_1bit(&png_data, width, height)
+                self.png_to_1bit(&png_data, width, height, rotation)
             },
             PixelFormat::Rykw2Bit => {
-                self.png_to_2bpp_wryk(&png_data, width, height)
+                self.png_to_2bpp_wryk(&png_data, width, height, rotation)
             }
         }
     }
