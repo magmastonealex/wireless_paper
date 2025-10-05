@@ -55,7 +55,7 @@ impl BusinessImpl {
     ///   2c. If current_firmware != desired firmware, and firmware_state is STARTED, set firmware_state to FAILED and set desired_firmware in the response to match the current firmware so the device does not upgrade.
     ///   2d. If current_firmware != desired firmware, and firmware_state is FAILED, set desired_firmware in the response to match the current firmware so the device does not upgrade.
     /// 3. Set the last_heartbeat of the device state to the current time.
-    /// 4. Set the expected_heartbeat to 30 seconds + the checkin_interval inside of the config.
+    /// 4. Set the expected_heartbeat to 600 seconds + the checkin_interval inside of the config.
     pub async fn handle_heartbeat(&self, req: DeviceHeartbeatRequest) -> Result<DeviceHeartbeatResponse, BusinessError> {
         // 1. Load the DeviceState object for the device_id included in the request
         let mut device_state = self.db.get_device_state(req.device_id).await
@@ -113,7 +113,7 @@ impl BusinessImpl {
         device_state.last_heartbeat = now;
         device_state.vbat_mv = req.vbat_mv;
 
-        // 4. Set the expected_heartbeat to 30 seconds + checkin_interval (if not already set above)
+        // 4. Set the expected_heartbeat to 600 seconds + checkin_interval (if not already set above)
         if device_state.firmware_state != FirmwareState::STARTED {
             device_state.expected_heartbeat = now + Duration::seconds(600 + device_state.checkin_interval as i64);
         }
@@ -149,6 +149,8 @@ mod tests {
             expected_heartbeat: now + Duration::seconds(30),
             checkin_interval: 60,
             vbat_mv: 1500,
+            image_url: None,
+            display_type: None,
         }
     }
 
@@ -334,8 +336,8 @@ mod tests {
         assert!(updated_device.last_heartbeat >= before_request);
         assert!(updated_device.last_heartbeat <= after_request);
 
-        // expected_heartbeat should be set to last_heartbeat + 30 seconds + checkin_interval
-        let expected_next = updated_device.last_heartbeat + Duration::seconds(90); // 30 + 60
+        // expected_heartbeat should be set to last_heartbeat + 600 seconds + checkin_interval
+        let expected_next = updated_device.last_heartbeat + Duration::seconds(660); // 600 + 60
         let time_diff = (updated_device.expected_heartbeat - expected_next).abs();
         assert!(time_diff <= Duration::seconds(1)); // Allow for small timing differences
     }

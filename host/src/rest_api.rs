@@ -12,7 +12,7 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::{
     database::{Database, DatabaseError},
-    types::{DeviceState, FirmwareState},
+    types::{DeviceState, FirmwareState, DisplayType},
 };
 
 #[derive(Debug, Clone)]
@@ -26,6 +26,8 @@ pub struct CreateDeviceRequest {
     pub device_friendly_name: String,
     pub desired_firmware: i32,
     pub checkin_interval: i32,
+    pub image_url: Option<String>,
+    pub display_type: Option<DisplayType>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,6 +36,8 @@ pub struct UpdateDeviceRequest {
     pub desired_firmware: Option<i32>,
     pub firmware_state: Option<FirmwareState>,
     pub checkin_interval: Option<i32>,
+    pub image_url: Option<String>,
+    pub display_type: Option<DisplayType>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -113,6 +117,8 @@ async fn create_device(
         expected_heartbeat: now + chrono::Duration::seconds(request.checkin_interval as i64 + 30),
         checkin_interval: request.checkin_interval,
         vbat_mv: 1500,
+        image_url: request.image_url,
+        display_type: request.display_type,
     };
 
     state.db.create_device_state(&device_state).await?;
@@ -131,7 +137,7 @@ async fn update_device(
     }
     if let Some(firmware) = request.desired_firmware {
         if device.reported_firmware != firmware {
-            device.firmware_state = FirmwareState::PENDING;    
+            device.firmware_state = FirmwareState::PENDING;
         } else {
             device.firmware_state = FirmwareState::OK;
         }
@@ -140,6 +146,14 @@ async fn update_device(
 
     if let Some(interval) = request.checkin_interval {
         device.checkin_interval = interval;
+    }
+
+    if request.image_url.is_some() {
+        device.image_url = request.image_url;
+    }
+
+    if request.display_type.is_some() {
+        device.display_type = request.display_type;
     }
 
     state.db.update_device_state(&device).await?;

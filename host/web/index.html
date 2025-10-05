@@ -104,6 +104,24 @@
                                     <div class="fw-bold">{{ +((device.vbat_mv/1000.0).toFixed(4)) }}V</div>
                                 </div>
                             </div>
+
+                            <div class="row mb-3" v-if="device.display_type || device.image_url">
+                                <div class="col-12" v-if="device.display_type">
+                                    <small class="text-muted">Display Type</small>
+                                    <div class="fw-bold">{{ formatDisplayType(device.display_type) }}</div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3" v-if="device.image_url">
+                                <div class="col-12">
+                                    <small class="text-muted">Image URL</small>
+                                    <div class="small text-truncate" :title="device.image_url">
+                                        <a :href="device.image_url" target="_blank" rel="noopener noreferrer">
+                                            {{ device.image_url }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="card-footer">
                             <div class="btn-group w-100" role="group">
@@ -172,6 +190,24 @@
                                        v-model.number="newDevice.checkin_interval" required min="10" max="86400">
                                 <div class="form-text">How often the device should check in (10-86400 seconds)</div>
                             </div>
+                            <div class="mb-3">
+                                <label for="newImageUrl" class="form-label">Image URL</label>
+                                <input type="url" class="form-control" id="newImageUrl"
+                                       v-model="newDevice.image_url" placeholder="https://example.com/image.png">
+                                <div class="form-text">URL from which to fetch the image for this device</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="newDisplayType" class="form-label">Display Type</label>
+                                <select class="form-select" id="newDisplayType" v-model="newDevice.display_type">
+                                    <option :value="null">-- Select Display Type --</option>
+                                    <option value="EPD_TYPE_GDEY029T71H">2.9" B/W (GDEY029T71H)</option>
+                                    <option value="EPD_TYPE_GDEM035F51">3.5" 4-color (GDEM035F51)</option>
+                                    <option value="EPD_TYPE_GDEY029F51">2.9" 4-color (GDEY029F51)</option>
+                                    <option value="EPD_TYPE_GDEM075F52">7.5" 4-color (GDEM075F52)</option>
+                                    <option value="EPD_TYPE_WS_75_V2B">7.5" 2-color + red (WS_75_V2B)</option>
+                                </select>
+                                <div class="form-text">Type of e-paper display attached to this device</div>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -218,6 +254,24 @@
                                 <label for="editCheckinInterval" class="form-label">Check-in Interval (seconds)</label>
                                 <input type="number" class="form-control" id="editCheckinInterval"
                                        v-model.number="editingDevice.checkin_interval" required min="10" max="86400">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editImageUrl" class="form-label">Image URL</label>
+                                <input type="url" class="form-control" id="editImageUrl"
+                                       v-model="editingDevice.image_url" placeholder="https://example.com/image.png">
+                                <div class="form-text">URL from which to fetch the image for this device</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editDisplayType" class="form-label">Display Type</label>
+                                <select class="form-select" id="editDisplayType" v-model="editingDevice.display_type">
+                                    <option :value="null">-- Select Display Type --</option>
+                                    <option value="EPD_TYPE_GDEY029T71H">2.9" B/W (GDEY029T71H)</option>
+                                    <option value="EPD_TYPE_GDEM035F51">3.5" 4-color (GDEM035F51)</option>
+                                    <option value="EPD_TYPE_GDEY029F51">2.9" 4-color (GDEY029F51)</option>
+                                    <option value="EPD_TYPE_GDEM075F52">7.5" 4-color (GDEM075F52)</option>
+                                    <option value="EPD_TYPE_WS_75_V2B">7.5" 2-color + red (WS_75_V2B)</option>
+                                </select>
+                                <div class="form-text">Type of e-paper display attached to this device</div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -297,7 +351,9 @@
                         device_id: '',
                         device_friendly_name: '',
                         desired_firmware: 100,
-                        checkin_interval: 60
+                        checkin_interval: 60,
+                        image_url: null,
+                        display_type: null
                     },
 
                     editingDevice: {},
@@ -338,7 +394,9 @@
                         device_id: '',
                         device_friendly_name: '',
                         desired_firmware: '0.0.0.10',
-                        checkin_interval: 60
+                        checkin_interval: 60,
+                        image_url: null,
+                        display_type: null
                     };
                     this.createModal.show();
                 },
@@ -386,7 +444,9 @@
                         const updateData = {
                             device_friendly_name: this.editingDevice.device_friendly_name,
                             desired_firmware: this.unformatFirmware(this.editingDevice.desired_firmware),
-                            checkin_interval: this.editingDevice.checkin_interval
+                            checkin_interval: this.editingDevice.checkin_interval,
+                            image_url: this.editingDevice.image_url,
+                            display_type: this.editingDevice.display_type
                         };
 
                         const response = await fetch(`/api/devices/${this.editingDevice.device_id}`, {
@@ -479,6 +539,17 @@
                         case 'FAILED': return 'bi-x-circle';
                         default: return 'bi-question-circle';
                     }
+                },
+
+                formatDisplayType(displayType) {
+                    const displayTypeMap = {
+                        'EPD_TYPE_GDEY029T71H': '2.9" B/W (GDEY029T71H)',
+                        'EPD_TYPE_GDEM035F51': '3.5" 4-color (GDEM035F51)',
+                        'EPD_TYPE_GDEY029F51': '2.9" 4-color (GDEY029F51)',
+                        'EPD_TYPE_GDEM075F52': '7.5" 4-color (GDEM075F52)',
+                        'EPD_TYPE_WS_75_V2B': '7.5" 2-color + red (WS_75_V2B)'
+                    };
+                    return displayTypeMap[displayType] || displayType;
                 },
                 formatFirmware(fwnumeric) {
                     let major = (fwnumeric & 0xFF000000) >> 24;

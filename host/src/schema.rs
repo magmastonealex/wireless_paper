@@ -2,6 +2,10 @@
 
 pub mod sql_types {
     #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "display_type"))]
+    pub struct DisplayType;
+
+    #[derive(diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "firmware_state"))]
     pub struct FirmwareState;
 }
@@ -9,6 +13,7 @@ pub mod sql_types {
 diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::FirmwareState;
+    use super::sql_types::DisplayType;
 
     device_states (device_id) {
         device_id -> Int8,
@@ -20,5 +25,7 @@ diesel::table! {
         expected_heartbeat -> Timestamptz,
         checkin_interval -> Int4,
         vbat_mv -> Int4,
+        image_url -> Nullable<Varchar>,
+        display_type -> Nullable<DisplayType>,
     }
 }
