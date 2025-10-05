@@ -8,12 +8,17 @@ pub mod sql_types {
     #[derive(diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "firmware_state"))]
     pub struct FirmwareState;
+
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "rotation"))]
+    pub struct Rotation;
 }
 
 diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::FirmwareState;
     use super::sql_types::DisplayType;
+    use super::sql_types::Rotation;
 
     device_states (device_id) {
         device_id -> Int8,
@@ -27,5 +32,6 @@ diesel::table! {
         vbat_mv -> Int4,
         image_url -> Nullable<Varchar>,
         display_type -> Nullable<DisplayType>,
+        rotation -> Rotation,
     }
 }

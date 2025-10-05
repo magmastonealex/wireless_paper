@@ -4,7 +4,7 @@ use diesel::pg::{Pg, PgValue};
 use diesel::serialize::{ToSql, Output};
 use diesel::deserialize::{FromSql, Result as DeserializeResult};
 use serde::{Serialize, Deserialize};
-use crate::schema::{device_states, sql_types::{FirmwareState as FirmwareStateSqlType, DisplayType as DisplayTypeSqlType}};
+use crate::schema::{device_states, sql_types::{FirmwareState as FirmwareStateSqlType, DisplayType as DisplayTypeSqlType, Rotation as RotationSqlType}};
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
@@ -111,6 +111,45 @@ impl FromSql<DisplayTypeSqlType, Pg> for DisplayType {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
+#[diesel(sql_type = RotationSqlType)]
+pub enum Rotation {
+    #[serde(rename = "ROTATE_0")]
+    ROTATE_0,
+    #[serde(rename = "ROTATE_90")]
+    ROTATE_90,
+    #[serde(rename = "ROTATE_180")]
+    ROTATE_180,
+    #[serde(rename = "ROTATE_270")]
+    ROTATE_270,
+}
+
+impl ToSql<RotationSqlType, Pg> for Rotation {
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> diesel::serialize::Result {
+        let value = match self {
+            Rotation::ROTATE_0 => "ROTATE_0",
+            Rotation::ROTATE_90 => "ROTATE_90",
+            Rotation::ROTATE_180 => "ROTATE_180",
+            Rotation::ROTATE_270 => "ROTATE_270",
+        };
+        ToSql::<diesel::sql_types::Text, Pg>::to_sql(value, &mut out.reborrow())
+    }
+}
+
+impl FromSql<RotationSqlType, Pg> for Rotation {
+    fn from_sql(value: PgValue) -> DeserializeResult<Self> {
+        let text = <String as FromSql<diesel::sql_types::Text, Pg>>::from_sql(value)?;
+        match text.as_str() {
+            "ROTATE_0" => Ok(Rotation::ROTATE_0),
+            "ROTATE_90" => Ok(Rotation::ROTATE_90),
+            "ROTATE_180" => Ok(Rotation::ROTATE_180),
+            "ROTATE_270" => Ok(Rotation::ROTATE_270),
+            _ => Err(format!("Unknown Rotation value: {}", text).into()),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Queryable, Insertable, AsChangeset, Identifiable, Serialize, Deserialize)]
 #[diesel(table_name = device_states)]
 #[diesel(primary_key(device_id))]
@@ -126,4 +165,5 @@ pub struct DeviceState {
     pub vbat_mv: i32,
     pub image_url: Option<String>, // URL from which to fetch the image for this device
     pub display_type: Option<DisplayType>, // The type of e-paper display attached to this device
+    pub rotation: Rotation, // Display rotation in degrees (0, 90, 180, 270)
 }

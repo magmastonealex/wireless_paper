@@ -12,7 +12,7 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 
 use crate::{
     database::{Database, DatabaseError},
-    types::{DeviceState, FirmwareState, DisplayType},
+    types::{DeviceState, FirmwareState, DisplayType, Rotation},
 };
 
 #[derive(Debug, Clone)]
@@ -28,6 +28,7 @@ pub struct CreateDeviceRequest {
     pub checkin_interval: i32,
     pub image_url: Option<String>,
     pub display_type: Option<DisplayType>,
+    pub rotation: Option<Rotation>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,6 +39,7 @@ pub struct UpdateDeviceRequest {
     pub checkin_interval: Option<i32>,
     pub image_url: Option<String>,
     pub display_type: Option<DisplayType>,
+    pub rotation: Option<Rotation>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -119,6 +121,7 @@ async fn create_device(
         vbat_mv: 1500,
         image_url: request.image_url,
         display_type: request.display_type,
+        rotation: request.rotation.unwrap_or(Rotation::ROTATE_0),
     };
 
     state.db.create_device_state(&device_state).await?;
@@ -154,6 +157,10 @@ async fn update_device(
 
     if request.display_type.is_some() {
         device.display_type = request.display_type;
+    }
+
+    if let Some(rotation) = request.rotation {
+        device.rotation = rotation;
     }
 
     state.db.update_device_state(&device).await?;

@@ -105,10 +105,14 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3" v-if="device.display_type || device.image_url">
-                                <div class="col-12" v-if="device.display_type">
+                            <div class="row mb-3" v-if="device.display_type || device.image_url || device.rotation">
+                                <div class="col-6" v-if="device.display_type">
                                     <small class="text-muted">Display Type</small>
                                     <div class="fw-bold">{{ formatDisplayType(device.display_type) }}</div>
+                                </div>
+                                <div class="col-6" v-if="device.rotation">
+                                    <small class="text-muted">Rotation</small>
+                                    <div class="fw-bold">{{ formatRotation(device.rotation) }}</div>
                                 </div>
                             </div>
 
@@ -208,6 +212,16 @@
                                 </select>
                                 <div class="form-text">Type of e-paper display attached to this device</div>
                             </div>
+                            <div class="mb-3">
+                                <label for="newRotation" class="form-label">Display Rotation</label>
+                                <select class="form-select" id="newRotation" v-model="newDevice.rotation">
+                                    <option value="ROTATE_0">0°</option>
+                                    <option value="ROTATE_90">90°</option>
+                                    <option value="ROTATE_180">180°</option>
+                                    <option value="ROTATE_270">270°</option>
+                                </select>
+                                <div class="form-text">Rotation angle for the display</div>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -272,6 +286,16 @@
                                     <option value="EPD_TYPE_WS_75_V2B">7.5" 2-color + red (WS_75_V2B)</option>
                                 </select>
                                 <div class="form-text">Type of e-paper display attached to this device</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editRotation" class="form-label">Display Rotation</label>
+                                <select class="form-select" id="editRotation" v-model="editingDevice.rotation">
+                                    <option value="ROTATE_0">0°</option>
+                                    <option value="ROTATE_90">90°</option>
+                                    <option value="ROTATE_180">180°</option>
+                                    <option value="ROTATE_270">270°</option>
+                                </select>
+                                <div class="form-text">Rotation angle for the display</div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -353,7 +377,8 @@
                         desired_firmware: 100,
                         checkin_interval: 60,
                         image_url: null,
-                        display_type: null
+                        display_type: null,
+                        rotation: 'ROTATE_0'
                     },
 
                     editingDevice: {},
@@ -396,7 +421,8 @@
                         desired_firmware: '0.0.0.10',
                         checkin_interval: 60,
                         image_url: null,
-                        display_type: null
+                        display_type: null,
+                        rotation: 'ROTATE_0'
                     };
                     this.createModal.show();
                 },
@@ -446,7 +472,8 @@
                             desired_firmware: this.unformatFirmware(this.editingDevice.desired_firmware),
                             checkin_interval: this.editingDevice.checkin_interval,
                             image_url: this.editingDevice.image_url,
-                            display_type: this.editingDevice.display_type
+                            display_type: this.editingDevice.display_type,
+                            rotation: this.editingDevice.rotation
                         };
 
                         const response = await fetch(`/api/devices/${this.editingDevice.device_id}`, {
@@ -550,6 +577,15 @@
                         'EPD_TYPE_WS_75_V2B': '7.5" 2-color + red (WS_75_V2B)'
                     };
                     return displayTypeMap[displayType] || displayType;
+                },
+                formatRotation(rotation) {
+                    const rotationMap = {
+                        'ROTATE_0': '0°',
+                        'ROTATE_90': '90°',
+                        'ROTATE_180': '180°',
+                        'ROTATE_270': '270°'
+                    };
+                    return rotationMap[rotation] || rotation;
                 },
                 formatFirmware(fwnumeric) {
                     let major = (fwnumeric & 0xFF000000) >> 24;

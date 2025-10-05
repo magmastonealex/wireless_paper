@@ -151,6 +151,7 @@ mod tests {
             vbat_mv: 1500,
             image_url: None,
             display_type: None,
+            rotation: crate::types::Rotation::ROTATE_0,
         }
     }
 
