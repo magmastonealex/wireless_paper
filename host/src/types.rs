@@ -57,6 +57,33 @@ pub enum DisplayType {
     EPD_TYPE_WS_75_V2B,   // 7.5 2-color + red
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum PixelFormat {
+    Rykw4Bit,
+    Kw2Bit,
+}
+
+impl DisplayType {
+    pub fn get_display_dimensions(&self) -> (u32, u32) {
+        match self {
+            DisplayType::EPD_TYPE_GDEY029T71H => (384, 168),  // 2.9" B/W
+            DisplayType::EPD_TYPE_GDEM035F51 => (384, 184),   // 3.5" 4-color
+            DisplayType::EPD_TYPE_GDEY029F51 => (384, 168),   // 2.9" 4-color
+            DisplayType::EPD_TYPE_GDEM075F52 => (800, 480),   // 7.5" 4-color
+            DisplayType::EPD_TYPE_WS_75_V2B => (800, 480),    // 7.5" 2-color + red
+        }
+    }
+    pub fn get_pixel_format(&self) -> PixelFormat {
+        match self {
+            DisplayType::EPD_TYPE_GDEY029T71H => PixelFormat::Kw2Bit,  // 2.9" B/W
+            DisplayType::EPD_TYPE_GDEM035F51 => PixelFormat::Rykw4Bit,   // 3.5" 4-color
+            DisplayType::EPD_TYPE_GDEY029F51 => PixelFormat::Rykw4Bit,   // 2.9" 4-color
+            DisplayType::EPD_TYPE_GDEM075F52 => PixelFormat::Rykw4Bit,   // 7.5" 4-color
+            DisplayType::EPD_TYPE_WS_75_V2B => PixelFormat::Kw2Bit,    // 7.5" 2-color + red
+        }
+    }
+}
+
 impl ToSql<DisplayTypeSqlType, Pg> for DisplayType {
     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> diesel::serialize::Result {
         let value = match self {
