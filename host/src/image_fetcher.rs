@@ -2,6 +2,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Result};
 use reqwest::Client;
 use image::{GenericImageView, ImageReader};
+use crate::types::DisplayType;
 
 pub struct ImageFetcher {
     client: Client,
@@ -96,6 +97,21 @@ impl ImageFetcher {
     pub async fn fetch_and_convert(&self, url: &str, width: u32, height: u32) -> Result<Vec<u8>> {
         let png_data = self.fetch_png(url).await?;
         self.png_to_1bit(&png_data, width, height)
+    }
+
+    pub async fn fetch_and_convert_for_display(&self, url: &str, display_type: &DisplayType) -> Result<Vec<u8>> {
+        let (width, height) = get_display_dimensions(display_type);
+        self.fetch_and_convert(url, width, height).await
+    }
+}
+
+fn get_display_dimensions(display_type: &DisplayType) -> (u32, u32) {
+    match display_type {
+        DisplayType::EPD_TYPE_GDEY029T71H => (296, 128),  // 2.9" B/W
+        DisplayType::EPD_TYPE_GDEM035F51 => (240, 416),   // 3.5" 4-color
+        DisplayType::EPD_TYPE_GDEY029F51 => (296, 128),   // 2.9" 4-color
+        DisplayType::EPD_TYPE_GDEM075F52 => (800, 480),   // 7.5" 4-color
+        DisplayType::EPD_TYPE_WS_75_V2B => (800, 480),    // 7.5" 2-color + red
     }
 }
 

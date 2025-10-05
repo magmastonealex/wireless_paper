@@ -7,7 +7,7 @@ use heatshrink::Config;
 use anyhow::anyhow;
 
 use crate::{
-    business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest, DeviceImageRequest}, database::DBImpl, image_fetcher::ImageFetcher, rest_api::{create_router, AppState}
+    business::{BusinessError, BusinessImpl, DeviceHeartbeatRequest, DeviceImageRequest}, database::{DBImpl, Database}, image_fetcher::ImageFetcher, rest_api::{create_router, AppState}
 };
 
 mod business;
@@ -20,26 +20,77 @@ mod image_fetcher;
 #[cfg(test)]
 mod mock_database;
 
-async fn fetch_and_compress_image() -> Result<(), anyhow::Error> {
-    println!("Fetching image from: {}", IMAGE_URL);
+fn ensure_image_directory() -> Result<(), anyhow::Error> {
+    fs::create_dir_all(IMAGE_FILES_DIR)
+        .map_err(|e| anyhow!("Failed to create image directory: {}", e))?;
+    Ok(())
+}
+
+async fn fetch_and_compress_images_for_all_devices(db: Arc<dyn Database + Send + Sync>) -> Result<(), anyhow::Error> {
+    println!("Fetching images for all devices...");
     let fetcher = ImageFetcher::new();
 
-    let raw_img = fetcher.fetch_and_convert(IMAGE_URL, IMAGE_WIDTH, IMAGE_HEIGHT).await
-        .map_err(|e| anyhow!("Failed to fetch and convert image: {}", e))?;
+    let devices = db.list_all_devices().await
+        .map_err(|e| anyhow!("Failed to list devices: {}", e))?;
 
-    println!("Fetched and converted image: {} bytes", raw_img.len());
+    let mut success_count = 0;
+    let mut skip_count = 0;
+    let mut error_count = 0;
 
-    let cfg = Config::new(11, 8)
-        .map_err(|e| anyhow!("Failed to create heatshrink config: {}", e))?;
+    for device in devices {
+        // Skip devices without both image_url and display_type set
+        let (image_url, display_type) = match (&device.image_url, &device.display_type) {
+            (Some(url), Some(dtype)) => (url, dtype),
+            _ => {
+                skip_count += 1;
+                continue;
+            }
+        };
 
-    let mut outvec = vec![0u8; raw_img.len() * 2];
-    let compressed = heatshrink::encode(&raw_img, &mut outvec, &cfg)
-        .map_err(|e| anyhow!("Failed to compress image: {:?}", e))?;
+        println!("Fetching image for device {} from: {}", device.device_id, image_url);
 
-    fs::write(COMPRESSED_IMAGE_PATH, compressed)
-        .map_err(|e| anyhow!("Failed to write compressed image: {}", e))?;
+        // Fetch and convert image for this display type
+        let raw_img = match fetcher.fetch_and_convert_for_display(image_url, display_type).await {
+            Ok(img) => img,
+            Err(e) => {
+                eprintln!("Failed to fetch image for device {}: {}", device.device_id, e);
+                error_count += 1;
+                continue;
+            }
+        };
 
-    println!("Compressed image saved to: {} ({} bytes)", COMPRESSED_IMAGE_PATH, compressed.len());
+        println!("Fetched and converted image for device {}: {} bytes", device.device_id, raw_img.len());
+
+        // Compress the image
+        let cfg = Config::new(11, 8)
+            .map_err(|e| anyhow!("Failed to create heatshrink config: {}", e))?;
+
+        let mut outvec = vec![0u8; raw_img.len() * 2];
+        let compressed = match heatshrink::encode(&raw_img, &mut outvec, &cfg) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Failed to compress image for device {}: {:?}", device.device_id, e);
+                error_count += 1;
+                continue;
+            }
+        };
+
+        // Save to device-specific file
+        let file_path = format!("{}/{}.bin", IMAGE_FILES_DIR, device.device_id);
+        match fs::write(&file_path, compressed) {
+            Ok(_) => {
+                println!("Compressed image saved to: {} ({} bytes)", file_path, compressed.len());
+                success_count += 1;
+            }
+            Err(e) => {
+                eprintln!("Failed to write image for device {}: {}", device.device_id, e);
+                error_count += 1;
+            }
+        }
+    }
+
+    println!("Image fetch complete: {} succeeded, {} skipped (no URL/type), {} errors",
+             success_count, skip_count, error_count);
     Ok(())
 }
 
@@ -49,10 +100,7 @@ struct CoapHandler {
 }
 
 const FW_DIRECTORY: &str = "fw/";
-const IMAGE_URL: &str = "http://127.0.0.1:10000/passive-displays/0?viewport=800x480&theme=Graphite%20E-ink%20Light&eink=2";
-const IMAGE_WIDTH: u32 = 800;
-const IMAGE_HEIGHT: u32 = 480;
-const COMPRESSED_IMAGE_PATH: &str = "img_compressed.bin";
+const IMAGE_FILES_DIR: &str = "image_files";
 
 #[async_trait]
 impl RequestHandler for CoapHandler {
@@ -149,9 +197,18 @@ impl CoapHandler {
             }
         };
 
-        println!("Got request: {:#?}", r);
+        println!("Got image request from device: {:#?}", r);
 
-        let compressed_img = fs::read(COMPRESSED_IMAGE_PATH).map_err(|e| BusinessError::InternalError(e.into()))?;
+        // Construct device-specific image file path
+        let file_path = format!("{}/{}.bin", IMAGE_FILES_DIR, r.device_id);
+
+        // Read and return the device-specific compressed image
+        let compressed_img = fs::read(&file_path).map_err(|e| {
+            eprintln!("Failed to read image file for device {}: {}", r.device_id, e);
+            BusinessError::InternalError(anyhow!("Image file not found for device {}: {}", r.device_id, e))
+        })?;
+
+        println!("Serving image file {} ({} bytes) to device {}", file_path, compressed_img.len(), r.device_id);
         Ok(compressed_img)
     }
 
@@ -220,27 +277,33 @@ fn main() {
     let http_addr = "0.0.0.0:8080";
 
     Runtime::new().unwrap().block_on(async move {
-        // Fetch initial image
-        if let Err(e) = fetch_and_compress_image().await {
-            eprintln!("Failed to fetch initial image: {}", e);
+        // Create shared database instance
+        let db_conn_str = "postgres://epaper:epaper_password@127.0.0.1/epaper";
+        let shared_db = Arc::new(DBImpl::new(db_conn_str).await.unwrap());
+
+        // Ensure image directory exists
+        if let Err(e) = ensure_image_directory() {
+            eprintln!("Failed to create image directory: {}", e);
+        }
+
+        // Fetch initial images for all devices
+        if let Err(e) = fetch_and_compress_images_for_all_devices(shared_db.clone()).await {
+            eprintln!("Failed to fetch initial images: {}", e);
         }
 
         // Start periodic image fetching task
-        tokio::spawn(async {
+        let db_for_task = shared_db.clone();
+        tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30 * 60)); // 30 minutes
             interval.tick().await; // Skip first tick (we already fetched at startup)
 
             loop {
                 interval.tick().await;
-                if let Err(e) = fetch_and_compress_image().await {
-                    eprintln!("Failed to fetch periodic image: {}", e);
+                if let Err(e) = fetch_and_compress_images_for_all_devices(db_for_task.clone()).await {
+                    eprintln!("Failed to fetch periodic images: {}", e);
                 }
             }
         });
-
-        // Create shared database instance
-        let db_conn_str = "postgres://epaper:epaper_password@127.0.0.1/epaper";
-        let shared_db = Arc::new(DBImpl::new(db_conn_str).await.unwrap());
 
         // Create CoAP server
         let coap_server = Server::new_udp(coap_addr).unwrap();
